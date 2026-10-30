@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.png" alt="UNI 2.0 — домашний сервер в Telegram">
+<img src="docs/assets/banner.webp" alt="UNI 2.0 — домашний сервер в Telegram">
 
 **Ваш домашний сервер в Telegram.** Приложения, мониторинг, новости и ремонт сервера: в чате и в красивом мини-приложении.
 
@@ -8,7 +8,7 @@
 
 ![version](https://img.shields.io/badge/версия-2.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
-<img src="docs/assets/screen-server.png" width="190" alt="Сервер"> <img src="docs/assets/screen-news.png" width="190" alt="Новости"> <img src="docs/assets/screen-money.png" width="190" alt="Деньги"> <img src="docs/assets/screen-more.png" width="190" alt="Ещё">
+<img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
 </div>
 

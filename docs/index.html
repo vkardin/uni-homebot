@@ -5,9 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UNI — домашний сервер в Telegram</title>
 <meta name="description" content="UNI: Telegram-бот и мини-приложение для домашнего сервера. Сводка, приложения, уведомления и веб-панель. Ставится одной командой.">
+<link rel="canonical" href="https://vkardin.github.io/uni-homebot/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vkardin.github.io/uni-homebot/">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:image" content="https://vkardin.github.io/uni-homebot/assets/banner.jpg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="UNI — домашний сервер в Telegram">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" as="image" href="assets/screen-home.webp" type="image/webp" fetchpriority="high">
 <meta property="og:title" content="UNI — домашний сервер в Telegram">
 <meta property="og:description" content="Сводка, приложения, уведомления и веб-панель в одном боте. Свой экземпляр, свой токен.">
-<meta property="og:image" content="https://vkardin.github.io/uni-homebot/assets/banner.png">
 <meta name="theme-color" content="#0f1114">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='%237aa7ff'/><stop offset='1' stop-color='%23d99a5b'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='%230f1114'/><text x='16' y='22' font-family='Arial' font-weight='800' font-size='15' text-anchor='middle' fill='url(%23g)'>U</text></svg>">
 <style>
@@ -124,7 +133,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
         <a class="btn" href="https://github.com/vkardin/uni-homebot/releases">Релизы</a>
       </div>
     </div>
-    <div class="phone"><img src="assets/screen-home.png" alt="Главный экран мини-приложения UNI: состояние сервера и приложения" width="422" height="717" onerror="this.parentNode.remove()"></div>
+    <div class="phone"><img src="assets/screen-home.webp" alt="Главный экран мини-приложения UNI: состояние сервера и приложения" width="422" height="717" fetchpriority="high" decoding="async" onerror="this.parentNode.remove()"></div>
   </header>
 </div>
 
@@ -148,10 +157,10 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
     <h2>Мини-приложение</h2>
     <p class="sub">Всё, что есть в чате, есть и в панели. Тема берётся из Telegram.</p>
     <div class="gallery">
-      <figure><img src="assets/screen-server.png" alt="Экран «Сервер»: нагрузка и графики" width="422" height="717" loading="lazy"><figcaption>Сервер</figcaption></figure>
-      <figure><img src="assets/screen-news.png" alt="Экран «Новости»: лента с пересказом" width="422" height="717" loading="lazy"><figcaption>Новости</figcaption></figure>
-      <figure><img src="assets/screen-money.png" alt="Экран «Деньги»: быстрая запись и курс" width="422" height="717" loading="lazy"><figcaption>Деньги</figcaption></figure>
-      <figure><img src="assets/screen-more.png" alt="Экран «Ещё»: инструменты и настройки" width="422" height="717" loading="lazy"><figcaption>Ещё</figcaption></figure>
+      <figure><img src="assets/screen-server.webp" alt="Экран «Сервер»: нагрузка и графики" width="422" height="717" loading="lazy" decoding="async"><figcaption>Сервер</figcaption></figure>
+      <figure><img src="assets/screen-news.webp" alt="Экран «Новости»: лента с пересказом" width="422" height="717" loading="lazy" decoding="async"><figcaption>Новости</figcaption></figure>
+      <figure><img src="assets/screen-money.webp" alt="Экран «Деньги»: быстрая запись и курс" width="422" height="717" loading="lazy" decoding="async"><figcaption>Деньги</figcaption></figure>
+      <figure><img src="assets/screen-more.webp" alt="Экран «Ещё»: инструменты и настройки" width="422" height="717" loading="lazy" decoding="async"><figcaption>Ещё</figcaption></figure>
     </div>
   </div>
 </section>
