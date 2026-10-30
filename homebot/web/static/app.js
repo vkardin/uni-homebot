@@ -555,14 +555,14 @@ async function viewHome(root) {
   const guide = await setupCard();
   if (guide) root.append(guide);
   root.append(await launcherBoard());
-  const pills = [has("finance") ? ["spend", "wallet", "Трата"] : null, ["note", "notes", "Заметка"], ["remind", "bell", "Напоминание"], has("sites") ? ["link", "link", "Слежка"] : null].filter(Boolean);
+  const pills = [has("finance") ? ["spend", "wallet", "Трата"] : null, subOn("notes") ? ["note", "notes", "Заметка"] : null, subOn("reminders") ? ["remind", "bell", "Напоминание"] : null, has("sites") ? ["link", "link", "Слежка"] : null].filter(Boolean);
   root.append(h("div", { class: "quick" }, ...pills.map(([k, ic, t]) => h("button", { class: "pill", onclick: () => quick(k) }, icon(ic), t))));
   const r = d.rate && !d.rate.error ? d.rate : null;
   if (r) root.append(group(`${r.asset} → ${r.fiat}`, h("button", { class: "li tap rate", onclick: () => show("money") },
     h("div", { class: "grow" }, h("div", { class: "big" }, num(r.best, 2) + " " + fiatSign(r.fiat)), h("div", { class: "s" }, "типичная " + num(r.typical, 2) + " " + fiatSign(r.fiat))),
     r.points.length > 2 ? spark(r.points, "var(--neon)") : null, icon("chev"))));
-  root.append(group("Скоро", ...(d.reminders.length ? d.reminders.map((x) => li(x.text, fmtDate(x.due_ts) + (x.rule_text ? ", " + x.rule_text : ""), null, () => show("more/reminders"))) : [li("Напоминаний нет", "Добавьте первое кнопкой выше", null, () => quick("remind"))])));
-  if (d.news.length) root.append(group("Новости", ...d.news.map((n) => li(n.title, `${n.feed}, ${fmtDate(n.sent_ts)}`, null, () => show("news"))), li("Все новости", null, null, () => show("news"))));
+  if (subOn("reminders")) root.append(group("Скоро", ...(d.reminders.length ? d.reminders.map((x) => li(x.text, fmtDate(x.due_ts) + (x.rule_text ? ", " + x.rule_text : ""), null, () => show("more/reminders"))) : [li("Напоминаний нет", "Добавьте первое кнопкой выше", null, () => quick("remind"))])));
+  if (d.news.length && !OFF.includes("news")) root.append(group("Новости", ...d.news.map((n) => li(n.title, `${n.feed}, ${fmtDate(n.sent_ts)}`, null, () => show("news"))), li("Все новости", null, null, () => show("news"))));
   const m = d.money && !d.money.error ? d.money : null;
   if (m) root.append(group("Деньги", li("Потрачено в этом месяце", null, h("b", {}, cents(m.spent, m.currency)), () => show("money"))));
   const st = d.sites && !d.sites.error ? d.sites : null;
@@ -674,7 +674,7 @@ async function modulesCard() {
   const st = await get("/api/modules"), box = h("div");
   const draw = (s) => {
     const rows = s.items.length
-      ? s.items.map((m) => setRow(m.title, m.on ? "Работает" : "Выключен, настройки сохранены", sw(m.on, async (v) => draw(await post("/api/modules", { id: m.id, on: v })))))
+      ? s.items.map((m) => setRow(m.title, m.on ? (m.kind === "section" ? "Раздел включён" : "Работает") : "Выключен, настройки сохранены", sw(m.on, async (v) => { const r = await post("/api/modules", { id: m.id, on: v }); OFF = r.hidden || []; draw(r); })))
       : [h("div", { class: "empty" }, "Пока ничего не подключено. Подключение — в чате: ⚙️ → 🧩 Приложения.")];
     const fix = s.broken.length
       ? [h("div", { class: "dim small", style: "margin-top:12px" }, "Остановлены после падений: " + s.broken.map((b) => b.title).join(", ")),
@@ -789,7 +789,8 @@ const SUBS = {
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],
 };
 const SUB_TILE = { movies: "movies", sites: "sites" };
-const subOn = (k) => !SUB_TILE[k] || has(SUB_TILE[k]);
+let OFF = []; // 🧱 выключенные разделы (news, ai, tools…)
+const subOn = (k) => !OFF.includes(k) && (!SUB_TILE[k] || has(SUB_TILE[k]));
 function connectSheet(t) {
   sheet(h("div", { class: "sheet-title" }, t.icon + " " + t.title),
     h("div", {}, "Проще всего из чата: напишите боту /connect. Я сам найду контейнер, спрошу адрес и ключ и проверю связь."),
@@ -855,7 +856,8 @@ if (!tg || !tg.initData) {
       $("host").textContent = me.name || "гость"; $("tabs").hidden = true; // у гостя один экран — «Главная»
     }
     else if (me && me.tiles) {
-      TILES = me.tiles;
+      TILES = me.tiles; OFF = me.hidden || [];
+      if (OFF.includes("news")) TABS = TABS.filter((t) => t[0] !== "news");
       $("bell").hidden = false; get("/api/inbox").then((st) => bellCount(st.unread)).catch(() => {});
       if (!has("finance") && !has("p2p")) TABS = TABS.filter((t) => t[0] !== "money");
     }

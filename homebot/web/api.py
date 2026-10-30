@@ -176,7 +176,11 @@ async def me(request: web.Request) -> Any:
     guest = request.get("guest")
     if guest is None:
         # плитки — чтобы панель сразу знала, какие вкладки и разделы показывать
-        return {"role": "admin", "version": __version__, "tiles": tiles.describe(_ctx(request).apps)}
+        from homebot.services import modules
+
+        c = _ctx(request)
+        hidden = modules.hidden_panel(modules.off(c.store))
+        return {"role": "admin", "version": __version__, "tiles": tiles.describe(c.apps), "hidden": hidden}
     return {
         "role": "guest",
         "name": guest.prefs.get("nick") or guest.name,
@@ -753,9 +757,9 @@ def _modules_state(c: Ctx) -> dict[str, Any]:
     off = modules.off(c.store)
     items = []
     for tid, _ in modules.rows(c.apps, off):
-        tile = tiles.BY_ID[tid]
-        items.append({"id": tid, "title": f"{tile.icon} {tile.title}", "on": tid not in off})
-    return {"items": items, "broken": [{"title": t, "error": e} for t, e in c.tasks.broken()]}
+        kind = "section" if tid in modules.FEATURE_BY_ID else "app"
+        items.append({"id": tid, "title": modules.title(tid), "on": tid not in off, "kind": kind})
+    return {"items": items, "broken": [{"title": t, "error": e} for t, e in c.tasks.broken()], "hidden": modules.hidden_panel(off)}
 
 
 @routes.get("/api/modules")
@@ -771,6 +775,13 @@ async def modules_post(request: web.Request) -> Any:
 
     c = _ctx(request)
     body = await _json(request)
+    feature = modules.FEATURE_BY_ID.get(str(body.get("id", "")))
+    if feature is not None:
+        from homebot.app import sync_modules
+
+        await modules.set_off(c.store, feature.id, not body.get("on"))
+        sync_modules(c.store)  # меню в чате; подсказки команд обновятся при перезапуске
+        return _modules_state(c)
     tile = tiles.BY_ID.get(str(body.get("id", "")))
     if tile is None:
         raise ApiError("такого модуля нет", 404)

@@ -502,6 +502,9 @@ async def _main() -> int:
             home=home,
         )
 
+        for job in modules.off_jobs(modules.off(store)):  # 🧱 задачи выключенных разделов не запускаем
+            tasks.unregister(job)
+
         power_service = PowerService(settings.restartable, power_enabled=settings.power_enabled)
         logs_service = LogsService([*settings.services, "homebot"])
         network_service = NetworkService(http)

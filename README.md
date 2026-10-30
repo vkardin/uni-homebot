@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать 6.0](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-6.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-6.3.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -27,7 +27,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-6.2.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-6.3.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -206,6 +206,14 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🧱 Разделы как модули (6.3)
+
+В «Модулях» (чат: 🧩 Приложения → Модули, панель: Ещё → Настройки) теперь не только подключённые приложения,
+но и встроенные разделы: 🗞 Новости, 🤖 Ассистент, ⏰ Напоминания, 📝 Заметки, 🧰 Инструменты,
+☔ Погодные предупреждения и 🎮 Бесплатные игры. Выключенный раздел пропадает из главного меню, подсказок
+команд и панели, а его фоновые задачи не запускаются (после перезапуска). Список хранится там же, в
+`modules_off` в `state.json`: id разделов не совпадают с id плиток, поэтому список из 6.0 читается без миграции.
 
 ### ⚙️ Настройки из панели (6.2)
 

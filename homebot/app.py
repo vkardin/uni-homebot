@@ -104,14 +104,32 @@ async def _status(bot: Bot, settings: Settings, store: StateStore, text: str, *,
     await store.set(KEY_STATUS_MESSAGE, sent.message_id)
 
 
+_OFF_COMMANDS: set[str] = set()  # команды выключенных модулей-разделов
+
+
+def set_off_commands(commands: set[str]) -> None:
+    _OFF_COMMANDS.clear()
+    _OFF_COMMANDS.update(commands)
+
+
 def visible_commands(commands: list[BotCommand], connected: set[str]) -> list[BotCommand]:
-    """Список команд без команд неподключённых плиток."""
-    hidden = tiles.hidden_commands(connected)
+    """Список команд без команд неподключённых плиток и выключенных разделов."""
+    hidden = tiles.hidden_commands(connected) | _OFF_COMMANDS
     return [c for c in commands if c.command not in hidden]
+
+
+def sync_modules(store: StateStore) -> None:
+    """Меню и подсказки команд — по списку выключенных модулей-разделов."""
+    from homebot.services import modules
+
+    ids = modules.off(store)
+    set_off_commands(modules.hidden_commands(ids))
+    kb.set_sections_off(modules.hidden_menu(ids))
 
 
 async def _on_startup(bot: Bot, settings: Settings, tasks: TaskManager, store: StateStore, apps: Apps | None = None) -> None:
     sections = tiles.connected_ids(apps) if apps is not None else set(tiles.BY_ID)
+    sync_modules(store)
     kb.set_connected_tiles(sections)
     with suppress(TelegramAPIError):  # у гостей по умолчанию короткий список, у вас в чате — полный
         await bot.set_my_commands(visible_commands(GUEST_COMMANDS, sections))
