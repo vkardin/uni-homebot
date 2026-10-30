@@ -877,6 +877,28 @@ async def launcher_post(request: web.Request) -> Any:
     return _launcher_state(c)
 
 
+# ======================================================================= 🧭 начало работы
+def _setup_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import setup
+
+    feeds = c.prefs.news().feeds if c.prefs is not None else ()
+    return setup.as_json(setup.steps(c.settings, c.apps, feeds), c.store)
+
+
+@routes.get("/api/setup")
+async def setup_get(request: web.Request) -> Any:
+    return _setup_state(_ctx(request))
+
+
+@routes.post("/api/setup")
+async def setup_post(request: web.Request) -> Any:
+    from homebot.services import setup
+
+    c = _ctx(request)
+    await setup.set_hidden(c.store, bool((await _json(request)).get("hidden")))
+    return _setup_state(c)
+
+
 # ======================================================================= страница
 async def index(request: web.Request) -> web.StreamResponse:
     # Версия в адресах стилей и скрипта: после обновления Telegram не покажет старые файлы из кэша

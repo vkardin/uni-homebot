@@ -424,7 +424,7 @@ async function viewNews(root) {
   root.append(await section(null, () => get("/api/news"), (items) => items.length ? items.map((n) => h("article", { class: "news" },
     h("div", { class: "meta" }, `${n.feed} · ${fmtDate(n.sent_ts)}`),
     h("div", { class: "head" }, /^https?:\/\//.test(n.link || "") ? h("a", { href: n.link, onclick: (e) => { e.preventDefault(); reader(n.link, n.title); } }, n.title) : n.title),
-    n.text ? h("div", { class: "sum" }, n.text) : null)) : [h("div", { class: "empty" }, "Пока ничего не присылал")]));
+    n.text ? h("div", { class: "sum" }, n.text) : null)) : [h("div", { class: "empty" }, IS_GUEST ? "Пока ничего не присылал" : "Пока ничего не присылал. Выберите подборки или добавьте свои ленты в «Категории и источники» выше, и новости начнут приходить по расписанию.")]));
 }
 
 // 📖 Режим чтения: статья открывается внутри панели (текстом), оригинал — во встроенном браузере Telegram
@@ -520,6 +520,18 @@ function addLink(draw) {
     h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/launcher", { op: "add", title: title.value, url: url.value, icon: ic.value })); $("sheet").hidden = true; }, "Добавлено") }, "Добавить"));
 }
 
+// 🧭 начало работы: что ещё не настроено; пропадает, когда всё готово или скрыто
+async function setupCard() {
+  const st = await get("/api/setup").catch(() => null);
+  if (!st || st.hidden || st.done === st.total) return null;
+  const box = h("div");
+  const open = (x) => (x.panel ? show(x.panel) : sheet(h("div", { class: "sheet-title" }, x.title), h("div", { class: "dim" }, x.hint), h("button", { class: "btn block", onclick: closeSheet }, "Понятно")));
+  const rows = st.steps.map((x) => li((x.done ? "✅ " : "▫️ ") + x.title, x.done ? null : x.hint, null, x.done ? null : () => open(x)));
+  const hide = h("button", { class: "btn sm", style: "margin-top:8px", onclick: act(async () => { await post("/api/setup", { hidden: true }); box.remove(); }, "Скрыто. Вернуть: /setup в чате") }, "Скрыть");
+  box.append(group(`Начало работы: ${st.done} из ${st.total}`, ...rows), hide);
+  return box;
+}
+
 async function viewHome(root) {
   const d = await get("/api/home");
   const sv = d.server && !d.server.error ? d.server : null;
@@ -540,6 +552,8 @@ async function viewHome(root) {
   if (sv) root.append(h("button", { class: "card tiles mini", onclick: () => show("server"), "aria-label": "Открыть «Сервер»" },
     tile("CPU", sv.cpu, pct(sv.cpu)), tile("Память", sv.ram, pct(sv.ram)), tile("Диск", sv.disk, pct(sv.disk)),
     sv.temp != null ? tile("Темп.", sv.temp, Math.round(sv.temp) + "°", `var(--${sev(sv.temp, 70, 85)})`) : tile("Службы", sv.failed.length ? 100 : 0, sv.failed.length ? "сбой " + sv.failed.length : "ок")));
+  const guide = await setupCard();
+  if (guide) root.append(guide);
   root.append(await launcherBoard());
   const pills = [has("finance") ? ["spend", "wallet", "Трата"] : null, ["note", "notes", "Заметка"], ["remind", "bell", "Напоминание"], has("sites") ? ["link", "link", "Слежка"] : null].filter(Boolean);
   root.append(h("div", { class: "quick" }, ...pills.map(([k, ic, t]) => h("button", { class: "pill", onclick: () => quick(k) }, icon(ic), t))));
@@ -750,9 +764,11 @@ const SUBS = {
 const SUB_TILE = { movies: "movies", sites: "sites" };
 const subOn = (k) => !SUB_TILE[k] || has(SUB_TILE[k]);
 function connectSheet(t) {
-  sheet(h("div", { class: "sheet-title" }, t.title), h("div", { class: "dim" }, "Чтобы подключить, добавьте на сервере в .env:"),
+  sheet(h("div", { class: "sheet-title" }, t.icon + " " + t.title),
+    h("div", {}, "Проще всего из чата: напишите боту /connect. Я сам найду контейнер, спрошу адрес и ключ и проверю связь."),
+    h("div", { class: "dim small" }, "Нет приложения? В чате: 🧩 Приложения → Каталог поставит его из бота."),
+    h("div", { class: "dim small", style: "margin-top:10px" }, "Или вручную на сервере в .env, потом перезапуск бота:"),
     h("pre", { class: "log" }, t.needs.map((k) => k + "=…").join("\n")),
-    h("div", { class: "dim small" }, "Потом перезапустите бота. Проверить подключение можно командой /doctor в чате."),
     h("button", { class: "btn block", onclick: closeSheet }, "Понятно"));
 }
 async function viewMore(root) {

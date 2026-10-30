@@ -231,6 +231,13 @@ async def cb_doctor(
     await edit_or_send(call, text, kb.doctor_kb(repair=bool(tasks.broken())))
 
 
+@router.message(Command("setup"))
+async def cmd_setup(message: Message, settings: Settings, apps: Apps, prefs: Prefs) -> None:
+    from homebot.services import setup
+
+    await message.answer(setup.render(setup.steps(settings, apps, prefs.news().feeds)))
+
+
 @router.callback_query(MenuCb.filter(F.action == MenuAction.REPAIR))
 async def cb_repair(call: CallbackQuery, tasks: TaskManager) -> None:
     count = tasks.repair()
