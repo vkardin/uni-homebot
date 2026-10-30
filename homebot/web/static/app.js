@@ -636,10 +636,37 @@ async function viewSettings(root) {
       field("Сколько новостей за раз", seg(st.choices.count.map((n) => [n, String(n)]), p.count, save("count"))),
       field("Формат", seg([["day", "Одно сообщение в день"], ["new", "Каждый раз новое"]], p.mode, save("mode")))),
     sourcesEditor("/api/settings/news", st),
+    await generalCard(),
     await modulesCard(),
     await repairCard(),
     card("О боте", row("Версия", null, h("b", {}, (await get("/api/me")).version)), h("div", { class: "dim small" }, "Доступ для других людей — в чате: Настройки → Доступ.")));
   root.append(box);
+}
+
+// ⚙️ общие настройки: часовой пояс, валюта, погода, пороги алертов, бэкап; .env главнее
+async function generalCard() {
+  const box = h("div");
+  const draw = (st) => {
+    const groups = {};
+    st.items.forEach((x) => (groups[x.group] = groups[x.group] || []).push(x));
+    const shown = (x) => (x.value == null || x.value === "" ? "не задано" : String(x.value));
+    const rowFor = (x) => x.source === "env"
+      ? li(x.title, "Задано на сервере в .env", h("span", { class: "dim" }, shown(x)))
+      : li(x.title, x.source === "panel" ? "Изменено в панели" : x.hint || null, h("b", {}, shown(x)), () => edit(x));
+    const edit = (x) => {
+      const input = h("input", { value: x.value == null ? "" : String(x.value), inputmode: x.kind === "text" ? "text" : "decimal", autocomplete: "off" });
+      const send = (op) => act(async () => { draw(await post("/api/settings/general", { op, name: x.name, value: input.value })); closeSheet(); }, "Сохранено");
+      sheet(h("div", { class: "sheet-title" }, x.title), x.hint ? h("div", { class: "dim small" }, x.hint) : null, input,
+        h("button", { class: "btn primary block", onclick: send("set") }, "Сохранить"),
+        x.source === "panel" ? h("button", { class: "btn block", onclick: send("reset") }, "Вернуть по умолчанию") : null);
+      setTimeout(() => input.focus(), 60);
+    };
+    const restart = st.pending ? h("div", { class: "card note" }, h("span", {}, "Изменения применятся после перезапуска бота. "),
+      h("button", { class: "btn sm primary", onclick: act(async () => { await post("/api/settings/general", { op: "restart" }); box.replaceChildren(card(null, h("div", { class: "dim" }, "Перезапускаюсь… Обновите панель через полминуты."))); }, "Перезапуск") }, "Перезапустить")) : null;
+    box.replaceChildren(...[restart, ...Object.entries(groups).map(([g, items]) => group(g, ...items.map(rowFor)))].filter(Boolean));
+  };
+  draw(await get("/api/settings/general"));
+  return box;
 }
 
 // 🧱 модули: выключить плитку, не теряя настроек; 🔧 перезапуск упавших фоновых задач

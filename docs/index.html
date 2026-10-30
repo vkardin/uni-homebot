@@ -229,11 +229,11 @@ footer a:hover { color: var(--text); }
         <button class="copy" type="button">Копировать</button>
       </div>
 <pre data-pane="sys"><span class="c"># номер версии из последнего релиза</span>
-V=6.1.0
+V=6.2.0
 curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
 sudo bash homebot/deploy/install.sh</pre>
 <pre data-pane="docker" hidden><span class="c"># без systemd и без пакетов в системе</span>
-V=6.1.0
+V=6.2.0
 curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
 cd homebot &amp;&amp; sudo bash deploy/install.sh --docker</pre>
     </div>

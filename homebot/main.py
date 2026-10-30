@@ -35,7 +35,7 @@ from homebot.jobs.ssh_watch import SshWatchJob
 from homebot.jobs.weather_watch import WeatherAlertsJob
 from homebot.logging_setup import setup_logging
 from homebot.owner_claim import wait_owner
-from homebot.services import connect, modules, owner
+from homebot.services import connect, modules, overrides, owner
 from homebot.services.access import AccessService
 from homebot.services.apps import Apps, build_apps
 from homebot.services.article_translate import LibreTranslator
@@ -385,6 +385,9 @@ async def _main() -> int:
     store = StateStore(settings.state_dir / "state.json")
     store.load()
     settings = await _apply_defaults_profile(settings, store)
+    settings = overrides.apply(settings, overrides.load(settings.state_dir))  # ⚙️ настройки из панели, .env главнее
+    if store.get("overrides_pending"):
+        await store.set("overrides_pending", False)  # перезапуск уже применил сохранённое
     settings = for_container(connect.apply(settings, connect.load(settings.state_dir)))  # 🧩 приложения из чата
     set_translate_ukrainian(settings.translate_ukrainian)
     db = Database(settings.state_dir / "homebot.db")

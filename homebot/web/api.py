@@ -899,6 +899,53 @@ async def setup_post(request: web.Request) -> Any:
     return _setup_state(c)
 
 
+# ======================================================================= ⚙️ общие настройки (settings.json)
+def _general_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import overrides
+
+    data = overrides.load(c.settings.state_dir)
+    saved = c.store.get("overrides_pending", False)
+    return {"items": overrides.describe(c.settings, data), "pending": bool(saved)}
+
+
+@routes.get("/api/settings/general")
+async def general_get(request: web.Request) -> Any:
+    return _general_state(_ctx(request))
+
+
+@routes.post("/api/settings/general")
+async def general_post(request: web.Request) -> Any:
+    import os
+    import signal
+
+    from homebot.services import overrides
+
+    c = _ctx(request)
+    body = await _json(request)
+    op = body.get("op")
+    if op == "restart":
+        await c.store.set("overrides_pending", False)
+        # как «Перезапустить бота» в ремонте: SIGTERM через секунду, systemd или Docker поднимут бота снова
+        asyncio.get_running_loop().call_later(1.0, os.kill, os.getpid(), signal.SIGTERM)
+        return {"ok": True}
+    name = str(body.get("name", ""))
+    if name in c.settings.model_fields_set:
+        raise ApiError("задано в .env на сервере — меняется только там")
+    data = overrides.load(c.settings.state_dir)
+    if op == "set":
+        try:
+            data[name] = overrides.validate(name, body.get("value"))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+    elif op == "reset":
+        data.pop(name, None)
+    else:
+        raise ApiError("неизвестное действие")
+    overrides.save(c.settings.state_dir, data)
+    await c.store.set("overrides_pending", True)
+    return _general_state(c)
+
+
 # ======================================================================= страница
 async def index(request: web.Request) -> web.StreamResponse:
     # Версия в адресах стилей и скрипта: после обновления Telegram не покажет старые файлы из кэша
