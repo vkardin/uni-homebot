@@ -504,20 +504,38 @@ function quick(kind) {
 // 🚀 доска приложений: веб-интерфейсы подключённого и свои ссылки (долгое нажатие на ссылку — удалить)
 async function launcherBoard() {
   const box = h("section", { class: "board" });
+  let alive = {};
+  const dot = (key) => (key in alive && alive[key] != null ? h("span", { class: "live " + (alive[key] ? "on" : "off"), title: alive[key] ? "онлайн" : "не отвечает" }) : null);
   const draw = (st) => {
-    const app = (x, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon), h("span", { class: "at" }, x.title));
-    const link = (x) => { const b = app(x, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(async () => { if (await confirmAsk(`Убрать «${x.title}»?`)) draw(await post("/api/launcher", { op: "remove", url: x.url })); }, 650); });
+    const app = (x, key, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon, dot(key)), h("span", { class: "at" }, x.title));
+    const link = (x) => { const b = app(x, x.url, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(() => linkMenu(x, st, draw), 650); });
       ["pointerup", "pointerleave"].forEach((e) => b.addEventListener(e, () => clearTimeout(t))); return b; };
-    const add = h("button", { class: "app add", onclick: () => addLink(draw) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, "Ссылка"));
-    box.replaceChildren(h("h4", {}, "Приложения"), h("div", { class: "apps" }, ...st.apps.map((x) => app(x)), ...st.links.map(link), add));
+    const add = h("button", { class: "app add", onclick: () => addLink(draw, st) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, "Ссылка"));
+    const groups = {};
+    st.links.forEach((x) => (groups[x.group || ""] = groups[x.group || ""] || []).push(x));
+    const named = Object.keys(groups).filter((g) => g);
+    box.replaceChildren(h("h4", {}, "Приложения"), h("div", { class: "apps" }, ...st.apps.map((x) => app(x, x.id)), ...(groups[""] || []).map(link), add),
+      ...named.flatMap((g) => [h("h4", { style: "margin-top:14px" }, g), h("div", { class: "apps" }, ...groups[g].map(link))]));
   };
-  draw(await get("/api/launcher").catch(() => ({ apps: [], links: [] })));
+  const st = await get("/api/launcher").catch(() => ({ apps: [], links: [] }));
+  draw(st);
+  if (st.apps.length || st.links.length) get("/api/launcher/status").then((a) => { alive = a || {}; draw(st); }).catch(() => {});
   return box;
 }
-function addLink(draw) {
+// долгое нажатие на свою ссылку: порядок, группа, удалить
+function linkMenu(x, st, draw) {
+  const send = (body) => act(async () => { const r = await post("/api/launcher", { url: x.url, ...body }); Object.assign(st, r); draw(st); closeSheet(); });
+  const groupIn = h("input", { value: x.group || "", placeholder: "Группа, например Дом", maxlength: "24" });
+  sheet(h("div", { class: "sheet-title" }, x.icon + " " + x.title), h("div", { class: "dim small" }, x.url),
+    h("div", { class: "chips" }, h("button", { class: "btn sm", onclick: send({ op: "move", step: -1 }) }, "◀ Левее"), h("button", { class: "btn sm", onclick: send({ op: "move", step: 1 }) }, "Правее ▶")),
+    field("Группа", h("div", { class: "inline" }, groupIn, h("button", { class: "btn", onclick: () => send({ op: "group", group: groupIn.value })() }, "OK")), "Пусто — общая сетка."),
+    h("button", { class: "btn block bad", onclick: act(async () => { if (await confirmAsk(`Убрать «${x.title}»?`)) { Object.assign(st, await post("/api/launcher", { op: "remove", url: x.url })); draw(st); closeSheet(); } }) }, "Убрать"));
+}
+function addLink(draw, st) {
   const title = h("input", { placeholder: "Название", maxlength: "32" }), url = h("input", { placeholder: "https://…", inputmode: "url" }), ic = h("input", { placeholder: "Значок, например 📷", maxlength: "4" });
-  sheet(h("div", { class: "sheet-title" }, "Новая ссылка"), title, url, ic,
-    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/launcher", { op: "add", title: title.value, url: url.value, icon: ic.value })); $("sheet").hidden = true; }, "Добавлено") }, "Добавить"));
+  const grp = h("input", { placeholder: "Группа (необязательно)", maxlength: "24" });
+  sheet(h("div", { class: "sheet-title" }, "Новая ссылка"), title, url, ic, grp,
+    h("button", { class: "btn primary block", onclick: act(async () => { Object.assign(st, await post("/api/launcher", { op: "add", title: title.value, url: url.value, icon: ic.value, group: grp.value })); draw(st); $("sheet").hidden = true; }, "Добавлено") }, "Добавить"));
 }
 
 // 🧭 начало работы: что ещё не настроено; пропадает, когда всё готово или скрыто

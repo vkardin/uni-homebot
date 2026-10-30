@@ -873,19 +873,39 @@ async def launcher_post(request: web.Request) -> Any:
     c = _ctx(request)
     body = await _json(request)
     items = launcher.links(c.store)
-    if body.get("op") == "add":
-        link = launcher.clean_link(str(body.get("title", "")), str(body.get("url", "")), str(body.get("icon", "")))
+    op = body.get("op")
+    if op == "add":
+        link = launcher.clean_link(
+            str(body.get("title", "")), str(body.get("url", "")), str(body.get("icon", "")), str(body.get("group", ""))
+        )
         if link is None:
             raise ApiError("нужны название и ссылка http(s)://")
         if len(items) >= launcher.MAX_LINKS:
             raise ApiError(f"не больше {launcher.MAX_LINKS} ссылок")
         items.append(link)
-    elif body.get("op") == "remove":
+    elif op == "remove":
         items = [x for x in items if x.get("url") != body.get("url")]
+    elif op == "move":
+        items = launcher.move(items, str(body.get("url", "")), -1 if int(body.get("step", 1)) < 0 else 1)
+    elif op == "group":
+        items = launcher.regroup(items, str(body.get("url", "")), str(body.get("group", "")))
     else:
         raise ApiError("неизвестное действие")
     await c.store.set(launcher.KEY, items)
     return _launcher_state(c)
+
+
+@routes.get("/api/launcher/status")
+async def launcher_status(request: web.Request) -> Any:
+    from homebot.services import launcher
+
+    c = _ctx(request)
+    if c.http is None:
+        return {}
+    st = _launcher_state(c)
+    probes = {x["id"]: x["probe"] for x in st["apps"]} | {x["url"]: x["url"] for x in st["links"]}
+    alive = await launcher.status(c.http, list(probes.values()))
+    return {key: alive.get(url) for key, url in probes.items()}
 
 
 # ======================================================================= 🧭 начало работы

@@ -1,6 +1,6 @@
 [project]
 name = "homebot"
-version = "6.3.0"
+version = "6.4.0"
 description = "Telegram control panel for a home server (aiogram 3, psutil, Ollama)"
 requires-python = ">=3.11"
 

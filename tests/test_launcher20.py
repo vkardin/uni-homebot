@@ -20,7 +20,9 @@ def test_reachable():
 def test_apps_only_connected():
     s = Settings(_env_file=None, bot_token="1:x", admin_id=1, radarr_url="http://127.0.0.1:7878", web_url="https://srv.ts.net")  # type: ignore[call-arg]
     items = launcher.apps(s, {"radarr"})
-    assert items == [{"id": "radarr", "title": "Radarr", "icon": "🎬", "url": "http://srv.ts.net:7878"}]
+    assert items == [
+        {"id": "radarr", "title": "Radarr", "icon": "🎬", "url": "http://srv.ts.net:7878", "probe": "http://127.0.0.1:7878"}
+    ]
 
 
 def test_links(tmp_path):
