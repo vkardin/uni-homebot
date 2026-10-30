@@ -157,8 +157,18 @@ def _is_archive(message: Message) -> bool:
     return name.endswith((".tar.gz", ".tgz"))  # это обновление бота — им занимается раздел «Обновление»
 
 
+def _is_settings(message: Message) -> bool:
+    from homebot.services.transfer import is_settings_file  # 📦 перенос настроек — это раздел «Бэкап»
+
+    return bool(message.document and is_settings_file(message.document.file_name))
+
+
 def _is_file(message: Message) -> bool:
-    return bool((message.document or message.photo or message.video or message.audio) and not _is_archive(message))
+    return bool(
+        (message.document or message.photo or message.video or message.audio)
+        and not _is_archive(message)
+        and not _is_settings(message)
+    )
 
 
 # ----------------------------------------------------------------------- меню и команда

@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать 6.0](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-6.4.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-6.5.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -27,7 +27,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-6.4.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-6.5.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -206,6 +206,14 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 📦 Перенос и бэкап перед обновлением (6.5)
+
+`/export` присылает `uni-settings.json`: настройки из панели, новости и источники, ночной режим, P2P, доска
+приложений, выключенные модули. На новом сервере отправьте этот файл боту и нажмите «Применить» (перед этим
+бот сохранит бэкап). Токены, ключи приложений, люди и данные (заметки, напоминания, история) в файл не входят:
+для них есть бэкап. Перед обновлением из чата бот теперь сам делает бэкап, а `settings.json` попадает в каждый
+бэкап и восстанавливается вместе с базой. Откат кода по-прежнему — «↩️ Откатить» после обновления.
 
 ### 🟢 Доска приложений 2.0 (6.4)
 

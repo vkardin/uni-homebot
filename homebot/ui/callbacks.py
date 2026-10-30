@@ -300,6 +300,7 @@ class BackupAction(StrEnum):
     NOW = "now"  # сохранить сейчас
     SEND = "snd"  # прислать файл в чат (ts — какой; 0 = последний)
     RESTORE = "rs"  # восстановить; go=0 — спросить, go=1 — выполнить
+    IMPORT = "imp"  # 📦 принять присланный uni-settings.json; go=1 — применить
 
 
 class BackupCb(CallbackData, prefix="b"):

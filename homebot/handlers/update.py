@@ -12,8 +12,11 @@ from aiogram.types import CallbackQuery, Message
 
 from homebot import __version__
 from homebot.config import Settings
+from homebot.services import backup as backup_svc
 from homebot.services import selfupdate
+from homebot.services.db import Database
 from homebot.services.power import is_fresh
+from homebot.services.state import StateStore
 from homebot.ui import keyboards as kb
 from homebot.ui import update_texts as texts
 from homebot.ui.callbacks import UpdateAction, UpdateCb
@@ -101,7 +104,15 @@ def _spawn_watchdog(bot: Bot, settings: Settings) -> None:
 
 
 @router.callback_query(UpdateCb.filter(F.action == UpdateAction.GO))
-async def cb_go(call: CallbackQuery, callback_data: UpdateCb, bot: Bot, settings: Settings) -> None:
+async def _backup_before_update(settings: Settings, store: StateStore, db: Database) -> None:
+    """💾 Копия базы и состояния перед обновлением; не получилось — обновление всё равно идёт (откат кода есть)."""
+    try:
+        await backup_svc.run_backup(settings.state_dir, db, store, keep=settings.backup_keep + 1, extra=[], tz=settings.tz)
+    except backup_svc.BackupError as exc:
+        log.warning("Backup before update failed: %s", exc)
+
+
+async def cb_go(call: CallbackQuery, callback_data: UpdateCb, bot: Bot, settings: Settings, store: StateStore, db: Database) -> None:
     if not is_fresh(callback_data.ts, time.time()) and time.time() - callback_data.ts > selfupdate.CONFIRM_TTL_SEC:
         await call.answer(texts.STALE, show_alert=True)
         return
@@ -124,6 +135,7 @@ async def cb_go(call: CallbackQuery, callback_data: UpdateCb, bot: Bot, settings
     if selfupdate.request_pending(settings.state_dir):
         await call.answer("Обновление уже запущено", show_alert=True)
         return
+    await _backup_before_update(settings, store, db)
     selfupdate.write_request(settings.state_dir, "install", info)
     await call.answer("Запускаю")
     await edit_or_send(call, texts.render_started(info.version))

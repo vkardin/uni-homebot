@@ -50,6 +50,7 @@ COMMANDS = [
     BotCommand(command="repair", description="Ремонт сервера по PIN (если включён)"),
     BotCommand(command="tasks", description="Фоновые задачи"),
     BotCommand(command="settings", description="Настройки UNI"),
+    BotCommand(command="export", description="Перенос настроек на другой сервер"),
     BotCommand(command="cancel", description="Выйти из текущего режима"),
 ]
 
