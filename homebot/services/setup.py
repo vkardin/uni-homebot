@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
+from homebot.i18n import tr
 from homebot.services import tiles
 
 if TYPE_CHECKING:
@@ -32,23 +33,25 @@ def steps(settings: Settings, apps: Apps, news_feeds: list[str] | tuple[str, ...
     connected = tiles.connected_ids(apps)
     tz_set = "timezone" in settings.model_fields_set or settings.timezone != "UTC"
     return [
-        Step("owner", "Владелец назначен", settings.admin_id is not None, "Напишите боту код из журнала сервера"),
+        Step("owner", tr("Владелец назначен"), settings.admin_id is not None, tr("Напишите боту код из журнала сервера")),
         Step(
             "panel",
-            "Панель открывается из Telegram",
+            tr("Панель открывается из Telegram"),
             bool(settings.web_enabled and settings.web_url),
             "На сервере: sudo bash deploy/update.sh — он включит Tailscale Serve и пропишет WEB_URL",
         ),
-        Step("timezone", "Часовой пояс", tz_set, f"Сейчас {settings.timezone}. Задаётся в Настройках", "more/settings"),
-        Step("weather", "Погода для вашего города", settings.weather_enabled, "Укажите координаты в Настройках", "more/settings"),
+        Step("timezone", tr("Часовой пояс"), tz_set, f"Сейчас {settings.timezone}. Задаётся в Настройках", "more/settings"),
+        Step(
+            "weather", tr("Погода для вашего города"), settings.weather_enabled, tr("Укажите координаты в Настройках"), "more/settings"
+        ),
         Step(
             "news",
-            "Источники новостей",
+            tr("Источники новостей"),
             bool(news_feeds or settings.feeds),
-            "Выберите подборки или добавьте свои ленты",
+            tr("Выберите подборки или добавьте свои ленты"),
             "more/settings",
         ),
-        Step("apps", "Подключено хотя бы одно приложение", bool(connected), "В чате: /connect — найду контейнеры сам", "more"),
+        Step("apps", tr("Подключено хотя бы одно приложение"), bool(connected), tr("В чате: /connect — найду контейнеры сам"), "more"),
     ]
 
 
@@ -72,7 +75,9 @@ def as_json(items: list[Step], store: StateStore) -> dict[str, Any]:
 def render(items: list[Step]) -> str:
     """Текст для /setup (HTML)."""
     done, total = progress(items)
-    head = "🧭 <b>Начало работы</b>" + (" — всё готово ✨" if done == total else f": готово {done} из {total}")
+    head = f"🧭 <b>{tr('Начало работы')}</b>" + (
+        f" — {tr('всё готово')} ✨" if done == total else f": {tr('готово')} {done} {tr('из')} {total}"
+    )
     lines = [head, ""]
     for s in items:
         lines.append(("✅ " if s.done else "▫️ ") + s.title + ("" if s.done else f"\n     <i>{s.hint}</i>"))

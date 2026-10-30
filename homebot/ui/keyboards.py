@@ -9,6 +9,7 @@ from typing import Any
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from homebot.i18n import tr
 from homebot.services.access import FEATURES, STATUS_ICON, Person
 from homebot.services.backup import BackupFile
 from homebot.services.cleanup import MAX_SHOWN, Watched, signature
@@ -124,7 +125,7 @@ def main_menu() -> InlineKeyboardMarkup:
     """Главное меню по приоритету: новости и личное — сверху, сервер — в отдельном разделе."""
     builder = InlineKeyboardBuilder()
     if _PANEL_URL:
-        builder.button(text="🖥 Открыть панель", web_app=WebAppInfo(url=_PANEL_URL))
+        builder.button(text=tr("🖥 Открыть панель"), web_app=WebAppInfo(url=_PANEL_URL))
     for text, action in (
         ("🗞 Новости", MenuAction.NEWS),
         ("🎬 Кино", MenuAction.MOVIES),
@@ -139,7 +140,7 @@ def main_menu() -> InlineKeyboardMarkup:
         ("⚙️ Настройки", MenuAction.SETTINGS),
     ):
         if action not in _HIDDEN:
-            builder.button(text=text, callback_data=_menu(action))
+            builder.button(text=tr(text), callback_data=_menu(action))
     builder.adjust(*([1] if _PANEL_URL else []), 2)
     return builder.as_markup()
 

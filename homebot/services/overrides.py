@@ -34,6 +34,7 @@ class Option:
 
 
 OPTIONS: tuple[Option, ...] = (
+    Option("language", "Язык", "Общие", "text", "ru, en или uk"),
     Option("timezone", "Часовой пояс", "Общие", "text", "Например Europe/Berlin или America/New_York"),
     Option("currency", "Валюта", "Общие", "text", "Знак для финансов и цен: €, $, ₴, zł"),
     Option("weather_lat", "Широта", "Погода", "number", "Например 50.45"),
@@ -97,6 +98,10 @@ def validate(name: str, value: Any) -> Any:
             ZoneInfo(out)
         except (ZoneInfoNotFoundError, ValueError):
             raise ValueError(f"неизвестный часовой пояс: {out}") from None
+    if name == "language":
+        out = out.lower()
+        if out not in {"ru", "en", "uk"}:
+            raise ValueError("ru, en или uk")
     if name == "currency" and len(out) > 5:
         raise ValueError("не длиннее 5 символов")
     if name == "games_country":

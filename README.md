@@ -4,13 +4,18 @@
 
 **Ваш домашний сервер в Telegram.** Приложения, мониторинг, новости и ремонт сервера: в чате и в красивом мини-приложении.
 
-[Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать 6.0](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
+[Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-6.6.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-7.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
 </div>
+
+> **English:** UNI is a Telegram bot and Mini App panel for your home server, like Homarr but inside Telegram.
+> Install with `sudo bash homebot/deploy/install.sh` (or `--docker`), then set `LANGUAGE=en` or pick
+> English in the panel (More → Settings). Menus, commands and the main panel screens are translated;
+> the rest is still Russian and is being translated step by step. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Что такое UNI
 
@@ -27,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-6.6.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-7.0.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -206,6 +211,16 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🌐 UNI 7.0: языки и открытый проект
+
+* **Языки ru, en, uk.** `LANGUAGE=en` в `.env` или «Язык» в панели (Ещё → Настройки → Общие), после
+  перезапуска. Переведены главное меню, подсказки команд, «Начало работы» и основные экраны панели;
+  непереведённое остаётся по-русски (перевод по исходной строке: `homebot/i18n.py`, `TR` в `app.js`).
+  На существующих установках ничего не меняется: по умолчанию `ru`.
+* **Лицензия MIT** (`LICENSE`), **проверки на каждый коммит** в GitHub Actions: ruff, тесты на Python
+  3.11–3.13, проверка синтаксиса панели (`.github/workflows/ci.yml`).
+* **Для новых участников**: `CONTRIBUTING.md` и короткое описание на английском в начале README.
 
 ### 🧪 Стабилизация (6.6)
 

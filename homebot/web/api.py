@@ -180,7 +180,8 @@ async def me(request: web.Request) -> Any:
 
         c = _ctx(request)
         hidden = modules.hidden_panel(modules.off(c.store))
-        return {"role": "admin", "version": __version__, "tiles": tiles.describe(c.apps), "hidden": hidden}
+        lang = c.settings.language
+        return {"role": "admin", "version": __version__, "tiles": tiles.describe(c.apps), "hidden": hidden, "lang": lang}
     return {
         "role": "guest",
         "name": guest.prefs.get("nick") or guest.name,

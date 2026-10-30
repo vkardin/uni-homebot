@@ -17,6 +17,7 @@ from homebot import __version__
 from homebot.changelog import whats_new
 from homebot.config import LOAD_PROBLEMS, Settings
 from homebot.handlers import build_routers
+from homebot.i18n import tr
 from homebot.middlewares import AdminOnlyMiddleware, UsageMiddleware
 from homebot.services import selfupdate, tiles
 from homebot.services.access import AccessService
@@ -116,7 +117,7 @@ def set_off_commands(commands: set[str]) -> None:
 def visible_commands(commands: list[BotCommand], connected: set[str]) -> list[BotCommand]:
     """Список команд без команд неподключённых плиток и выключенных разделов."""
     hidden = tiles.hidden_commands(connected) | _OFF_COMMANDS
-    return [c for c in commands if c.command not in hidden]
+    return [BotCommand(command=c.command, description=tr(c.description)) for c in commands if c.command not in hidden]
 
 
 def sync_modules(store: StateStore) -> None:

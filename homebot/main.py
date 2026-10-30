@@ -16,7 +16,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramNetworkError, TelegramS
 from aiogram.types import BufferedInputFile
 from pydantic import ValidationError
 
-from homebot import __version__
+from homebot import __version__, i18n
 from homebot.app import build_dispatcher
 from homebot.config import Settings, for_container, load_settings, with_legacy_defaults
 from homebot.jobs.alerts import AlertsJob
@@ -390,6 +390,7 @@ async def _main() -> int:
         await store.set("overrides_pending", False)  # перезапуск уже применил сохранённое
     settings = for_container(connect.apply(settings, connect.load(settings.state_dir)))  # 🧩 приложения из чата
     set_translate_ukrainian(settings.translate_ukrainian)
+    i18n.set_lang(settings.language)
     db = Database(settings.state_dir / "homebot.db")
     try:
         db.open()

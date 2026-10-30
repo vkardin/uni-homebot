@@ -57,6 +57,7 @@ class Settings(BaseSettings):
 
     # --- Общее --------------------------------------------------------------
     log_level: str = "INFO"
+    language: str = "ru"  # 🌐 язык интерфейса: ru, en, uk (непереведённое остаётся по-русски)
     # Пусто — часовой пояс сервера (см. system_timezone), а если его не узнать — UTC.
     # pip-пакет `tzdata` из requirements.txt знает и современные имена, и старые алиасы вроде "Europe/Kiev".
     timezone: str = Field(default_factory=system_timezone)
@@ -238,6 +239,14 @@ class Settings(BaseSettings):
         value = value.strip().rstrip("/")
         if value and not value.startswith("https://"):
             raise ValueError("WEB_URL должен начинаться с https:// (Telegram открывает Mini App только по HTTPS) или быть пустым")
+        return value
+
+    @field_validator("language")
+    @classmethod
+    def _check_language(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in {"ru", "en", "uk"}:
+            raise ValueError("ожидается ru, en или uk")
         return value
 
     @field_validator("log_level")

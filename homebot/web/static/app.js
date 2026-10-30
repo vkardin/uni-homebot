@@ -56,6 +56,24 @@ function s(tag, attrs, ...kids) {
   return el;
 }
 const $ = (id) => document.getElementById(id);
+// 🌐 язык панели (из /api/me): непереведённое остаётся по-русски
+let LANG = "ru";
+const TR = {
+  "Главная": ["Home", "Головна"], "Сервер": ["Server", "Сервер"], "Новости": ["News", "Новини"], "Деньги": ["Money", "Гроші"], "Ещё": ["More", "Ще"],
+  "Настройки": ["Settings", "Налаштування"], "Новости, категории и источники": ["News, categories and sources", "Новини, категорії та джерела"],
+  "Инструменты": ["Tools", "Інструменти"], "Конвертер файлов, сборка PDF, скачивание": ["File converter, PDF merge, downloads", "Конвертер файлів, PDF, завантаження"],
+  "Кино и сериалы": ["Movies and shows", "Кіно та серіали"], "Поиск, загрузки, новинки": ["Search, downloads, new releases", "Пошук, завантаження, новинки"],
+  "Слежка за ценами": ["Price tracking", "Стеження за цінами"], "Цены и изменения на страницах": ["Prices and page changes", "Ціни та зміни на сторінках"],
+  "Напоминания": ["Reminders", "Нагадування"], "Разовые и повторяющиеся": ["One-time and recurring", "Разові та повторювані"],
+  "Заметки": ["Notes", "Нотатки"], "Быстрые записи": ["Quick notes", "Швидкі записи"],
+  "Спросить ИИ": ["Ask the assistant", "Запитати асистента"], "Локальная модель на сервере": ["Local model on the server", "Локальна модель на сервері"],
+  "Бэкап и статистика": ["Backup and stats", "Бекап і статистика"], "Копии данных бота": ["Copies of bot data", "Копії даних бота"],
+  "Всё в порядке": ["All good", "Усе гаразд"], "Приложения": ["Apps", "Застосунки"], "Ссылка": ["Link", "Посилання"],
+  "Начало работы": ["Getting started", "Початок роботи"], "из": ["of", "з"], "Скрыть": ["Hide", "Сховати"],
+  "Доброй ночи": ["Good night", "Доброї ночі"], "Доброе утро": ["Good morning", "Доброго ранку"], "Добрый день": ["Good afternoon", "Доброго дня"], "Добрый вечер": ["Good evening", "Доброго вечора"],
+};
+const T = (s) => (LANG !== "ru" && TR[s] ? TR[s][LANG === "en" ? 0 : 1] : s);
+const LOCALE = () => (LANG === "en" ? "en-GB" : LANG === "uk" ? "uk-UA" : "ru-RU");
 const fmtBytes = (n) => { n = Number(n) || 0; const u = ["Б", "КБ", "МБ", "ГБ", "ТБ"]; let i = 0; while (n >= 1024 && i < 4) { n /= 1024; i++; } return (n >= 100 || i === 0 ? n.toFixed(0) : n.toFixed(1)) + " " + u[i]; };
 const fmtSpeed = (n) => fmtBytes(n) + "/с";
 const fmtDur = (sec) => { sec = Math.floor(sec || 0); const d = Math.floor(sec / 86400), hh = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d} д ${hh} ч` : hh ? `${hh} ч ${m} мин` : `${m} мин`; };
@@ -481,7 +499,7 @@ async function notesCard() {
 }
 
 // ---------------------------------------------------------------- 🏠 ГЛАВНАЯ
-const greet = () => { const hr = new Date().getHours(); return hr < 5 ? "Доброй ночи" : hr < 12 ? "Доброе утро" : hr < 18 ? "Добрый день" : "Добрый вечер"; };
+const greet = () => { const hr = new Date().getHours(); return T(hr < 5 ? "Доброй ночи" : hr < 12 ? "Доброе утро" : hr < 18 ? "Добрый день" : "Добрый вечер"); };
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return n + " " + (m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); };
 const group = (title, ...rows) => h("section", { class: "grp" }, title ? h("h4", {}, title) : null, h("div", { class: "list" }, ...rows));
 const li = (main, sub, right, go) => h(go ? "button" : "div", { class: "li" + (go ? " tap" : ""), onclick: go || null }, h("div", { class: "grow" }, h("div", { class: "t" }, main), sub ? h("div", { class: "s" }, sub) : null), right || null, go ? icon("chev") : null);
@@ -510,11 +528,11 @@ async function launcherBoard() {
     const app = (x, key, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon, dot(key)), h("span", { class: "at" }, x.title));
     const link = (x) => { const b = app(x, x.url, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(() => linkMenu(x, st, draw), 650); });
       ["pointerup", "pointerleave"].forEach((e) => b.addEventListener(e, () => clearTimeout(t))); return b; };
-    const add = h("button", { class: "app add", onclick: () => addLink(draw, st) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, "Ссылка"));
+    const add = h("button", { class: "app add", onclick: () => addLink(draw, st) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, T("Ссылка")));
     const groups = {};
     st.links.forEach((x) => (groups[x.group || ""] = groups[x.group || ""] || []).push(x));
     const named = Object.keys(groups).filter((g) => g);
-    box.replaceChildren(h("h4", {}, "Приложения"), h("div", { class: "apps" }, ...st.apps.map((x) => app(x, x.id)), ...(groups[""] || []).map(link), add),
+    box.replaceChildren(h("h4", {}, T("Приложения")), h("div", { class: "apps" }, ...st.apps.map((x) => app(x, x.id)), ...(groups[""] || []).map(link), add),
       ...named.flatMap((g) => [h("h4", { style: "margin-top:14px" }, g), h("div", { class: "apps" }, ...groups[g].map(link))]));
   };
   const st = await get("/api/launcher").catch(() => ({ apps: [], links: [] }));
@@ -545,8 +563,8 @@ async function setupCard() {
   const box = h("div");
   const open = (x) => (x.panel ? show(x.panel) : sheet(h("div", { class: "sheet-title" }, x.title), h("div", { class: "dim" }, x.hint), h("button", { class: "btn block", onclick: closeSheet }, "Понятно")));
   const rows = st.steps.map((x) => li((x.done ? "✅ " : "▫️ ") + x.title, x.done ? null : x.hint, null, x.done ? null : () => open(x)));
-  const hide = h("button", { class: "btn sm", style: "margin-top:8px", onclick: act(async () => { await post("/api/setup", { hidden: true }); box.remove(); }, "Скрыто. Вернуть: /setup в чате") }, "Скрыть");
-  box.append(group(`Начало работы: ${st.done} из ${st.total}`, ...rows), hide);
+  const hide = h("button", { class: "btn sm", style: "margin-top:8px", onclick: act(async () => { await post("/api/setup", { hidden: true }); box.remove(); }, "Скрыто. Вернуть: /setup в чате") }, T("Скрыть"));
+  box.append(group(`${T("Начало работы")}: ${st.done} ${T("из")} ${st.total}`, ...rows), hide);
   return box;
 }
 
@@ -564,8 +582,8 @@ async function viewHome(root) {
   const bits = [];
   if (d.reminders.length) bits.push(`Ближайшее напоминание: ${d.reminders[0].text}.`);
   root.append(h("header", { class: "hero" },
-    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })),
-    h("h1", { class: problems.length ? "warn" : "" }, problems.length ? problems[0] : "Всё в порядке"),
+    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString(LOCALE(), { weekday: "long", day: "numeric", month: "long" })),
+    h("h1", { class: problems.length ? "warn" : "" }, problems.length ? problems[0] : T("Всё в порядке")),
     bits.length ? h("p", {}, bits.join(" ")) : null));
   if (sv) root.append(h("button", { class: "card tiles mini", onclick: () => show("server"), "aria-label": "Открыть «Сервер»" },
     tile("CPU", sv.cpu, pct(sv.cpu)), tile("Память", sv.ram, pct(sv.ram)), tile("Диск", sv.disk, pct(sv.disk)),
@@ -747,7 +765,7 @@ async function viewGuestHome(root) {
   if (val(rem)) bits.push(val(rem).length ? `Ближайшее напоминание: ${val(rem)[0].text}.` : "Напоминаний нет.");
   if (val(notes)) bits.push(`Заметок: ${val(notes).length}.`);
   root.append(h("header", { class: "hero" },
-    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })),
+    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString(LOCALE(), { weekday: "long", day: "numeric", month: "long" })),
     h("h1", {}, me.name ? "Привет, " + me.name : "Привет"),
     bits.length ? h("p", {}, bits.join(" ")) : null));
   const pills = [f.has("notes") ? ["note", "notes", "Заметка"] : null, f.has("reminders") ? ["remind", "bell", "Напоминание"] : null].filter(Boolean);
@@ -820,7 +838,7 @@ function connectSheet(t) {
 async function viewMore(root) {
   const off = (TILES || []).filter((t) => !t.connected);
   root.append(h("div", { class: "list launch" }, ...Object.entries(SUBS).filter(([k]) => subOn(k)).map(([k, [ic, title, sub]]) => h("button", { class: "li tap", onclick: () => show("more/" + k) },
-    h("span", { class: "badge-ic" }, icon(ic)), h("div", { class: "grow" }, h("div", { class: "t" }, title), h("div", { class: "s" }, sub)), icon("chev")))));
+    h("span", { class: "badge-ic" }, icon(ic)), h("div", { class: "grow" }, h("div", { class: "t" }, T(title)), h("div", { class: "s" }, T(sub))), icon("chev")))));
   if (off.length) root.append(group("Можно подключить", ...off.map((t) => li(t.icon + "  " + t.title, "Не подключено", null, () => connectSheet(t)))));
 }
 
@@ -836,9 +854,9 @@ async function show(name) {
   const tab = TABS.find((t) => t[0] === tabName) || TABS[0];
   const subs = IS_GUEST ? GUEST_SUBS : SUBS, parent = IS_GUEST ? "home" : "more";
   const sub = tab[0] === parent && subs[subName] && (IS_GUEST || subOn(subName)) ? subs[subName] : null;
-  current = tab[0]; currentSub = sub ? subName : ""; clearTimers(); closeSheet(); $("title").textContent = sub ? sub[1] : tab[2];
+  current = tab[0]; currentSub = sub ? subName : ""; clearTimers(); closeSheet(); $("title").textContent = T(sub ? sub[1] : tab[2]);
   history.replaceState(null, "", "#" + current + (currentSub ? "/" + currentSub : ""));
-  $("tabs").replaceChildren(...TABS.map((t) => h("button", { class: "tab" + (t[0] === current ? " on" : ""), onclick: () => show(t[0]) }, icon(t[1]), t[2])));
+  $("tabs").replaceChildren(...TABS.map((t) => h("button", { class: "tab" + (t[0] === current ? " on" : ""), onclick: () => show(t[0]) }, icon(t[1]), T(t[2]))));
   try { if (tg && tg.BackButton) { if (sub) tg.BackButton.show(); else tg.BackButton.hide(); } } catch (e) {}
   const root = $("view"); root.replaceChildren(loading());
   const mine = current + "/" + currentSub; const holder = h("div", { class: "grid" });
@@ -874,7 +892,7 @@ if (!tg || !tg.initData) {
       $("host").textContent = me.name || "гость"; $("tabs").hidden = true; // у гостя один экран — «Главная»
     }
     else if (me && me.tiles) {
-      TILES = me.tiles; OFF = me.hidden || [];
+      TILES = me.tiles; OFF = me.hidden || []; LANG = me.lang || "ru"; document.documentElement.lang = LANG;
       if (OFF.includes("news")) TABS = TABS.filter((t) => t[0] !== "news");
       $("bell").hidden = false; get("/api/inbox").then((st) => bellCount(st.unread)).catch(() => {});
       if (!has("finance") && !has("p2p")) TABS = TABS.filter((t) => t[0] !== "money");
