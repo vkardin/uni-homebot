@@ -66,15 +66,8 @@ class ArchiveInfo:
         return self.sha256[:12]
 
 
-# UNI 2.0 начинает новую нумерацию после 5.x: версии 2.* — новое поколение и считаются новее 5.13 и всех прежних
-# (старые 2.x были до 3.0 и давно не ставятся). Если новая линия дойдёт до 3.0 — добавить её сюда.
-NEW_LINE_MAJORS = frozenset({2})
-
-
 def version_key(version: str) -> tuple[int, ...]:
-    parts = tuple(int(part) for part in re.findall(r"\d+", version.split("+")[0])[:4])
-    era = 2 if parts and parts[0] in NEW_LINE_MAJORS else 1
-    return (era, *parts)
+    return tuple(int(part) for part in re.findall(r"\d+", version.split("+")[0])[:4])
 
 
 def compare_versions(new: str, current: str) -> int:

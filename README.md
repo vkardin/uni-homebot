@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="docs/assets/banner.webp" alt="UNI 2.0 — домашний сервер в Telegram">
+<img src="docs/assets/banner.webp" alt="UNI 6.0 — домашний сервер в Telegram">
 
 **Ваш домашний сервер в Telegram.** Приложения, мониторинг, новости и ремонт сервера: в чате и в красивом мини-приложении.
 
-[Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать 2.0](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
+[Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать 6.0](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-2.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-6.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -27,7 +27,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-2.0.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-6.0.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -207,9 +207,9 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
 
-### 🚀 UNI 2.0
+### 🚀 UNI 6.0
 
-Новое поколение (после 5.13 нумерация начинается с 2.0.0; обновлятор знает, что 2.x новее 5.x).
+Новое поколение UNI после 5.13.
 Главная панели теперь открывается **доской приложений**: веб-интерфейсы подключённых приложений и ваши ссылки
 («＋ Ссылка», долгое нажатие убирает). Внутренние адреса `127.0.0.1` открываются через имя сервера из `WEB_URL`
 (Tailscale). API: `GET/POST /api/launcher`, ссылки хранятся в `state.json` (`launcher_links`).

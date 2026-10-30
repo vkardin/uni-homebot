@@ -65,8 +65,7 @@ def _install(root: Path, version: str = "3.3.0", *, deploy: str = "#!/bin/bash\n
 def test_versions():
     assert compare_versions("3.4.0", "3.3.0") == 1 and compare_versions("3.3.0", "3.3.0") == 0
     assert compare_versions("3.3.9", "3.4.0") == -1 and compare_versions("4.0.0", "3.12.1") == 1
-    assert compare_versions("2.0.0", "5.13.0") == 1 and compare_versions("5.13.0", "2.0.0") == -1  # UNI 2.0 — новое поколение
-    assert compare_versions("2.1.0", "2.0.3") == 1
+    assert compare_versions("6.0.0", "5.13.0") == 1 and compare_versions("5.13.0", "6.0.0") == -1
 
 
 def test_inspect_archive_describes_update():
