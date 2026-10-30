@@ -1,0 +1,11 @@
+# Снимок SMART для HomeBot. Запускается от root по таймеру: боту root не нужен,
+# он только читает /var/lib/homebot/smart.json. Устанавливается deploy/update.sh.
+[Unit]
+Description=HomeBot: SMART snapshot of disks
+ConditionPathExists=/usr/sbin/smartctl
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/homebot/deploy/smart_snapshot.py /var/lib/homebot/smart.json
+Nice=10
+IOSchedulingClass=idle

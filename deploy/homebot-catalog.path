@@ -1,0 +1,9 @@
+[Unit]
+Description=HomeBot: ждёт запрос на установку приложения из каталога
+
+[Path]
+PathExists=/var/lib/homebot/catalog/request.json
+Unit=homebot-catalog.service
+
+[Install]
+WantedBy=multi-user.target

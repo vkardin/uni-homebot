@@ -1,0 +1,21 @@
+[project]
+name = "homebot"
+version = "2.0.0"
+description = "Telegram control panel for a home server (aiogram 3, psutil, Ollama)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 135
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # кириллица в строках и комментариях — это нормально
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]  # в тестах длинные строки с данными допустимы
+"homebot/services/convert.py" = ["ASYNC109", "ASYNC240"]  # короткие операции с файлами рядом с долгими внешними программами; timeout — параметр для asyncio.wait_for

@@ -1,0 +1,9 @@
+[Unit]
+Description=HomeBot: ждёт запрос на обновление от бота
+
+[Path]
+PathExists=/var/lib/homebot/update/request.json
+Unit=homebot-update.service
+
+[Install]
+WantedBy=multi-user.target

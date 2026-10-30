@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1114">
+<title>UNI</title>
+<link rel="stylesheet" href="/static/style.css?v=__V__">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="logo" id="title">UNI</div>
+  <div class="host" id="host"></div>
+  <button class="icon bell" id="bell" title="Уведомления" aria-label="Уведомления" hidden>🔔<i id="bell-n" hidden></i></button>
+  <button class="icon" id="reload" title="Обновить" aria-label="Обновить">⟳</button>
+</header>
+<main id="view" aria-live="polite"></main>
+<nav class="tabs" id="tabs"></nav>
+<div id="toast" class="toast" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="sheet-card" id="sheet-card"></div></div>
+<noscript>Нужен JavaScript.</noscript>
+<script src="/static/app.js?v=__V__"></script>
+</body>
+</html>

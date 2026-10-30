@@ -1,0 +1,12 @@
+# Перезапуск одного Docker-контейнера по запросу HomeBot.
+# Бот (пользователь homebot) может запускать ТОЛЬКО этот юнит — это разрешает polkit-правило из update.sh.
+# Имя контейнера приходит как имя экземпляра (%i) и проверяется ботом по шаблону [A-Za-z0-9_.-].
+[Unit]
+Description=HomeBot: restart Docker container %i
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker restart -- %i
+TimeoutStartSec=120

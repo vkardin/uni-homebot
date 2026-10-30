@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UNI — домашний сервер в Telegram</title>
+<meta name="description" content="UNI: Telegram-бот и мини-приложение для домашнего сервера. Сводка, приложения, уведомления и веб-панель. Ставится одной командой.">
+<meta property="og:title" content="UNI — домашний сервер в Telegram">
+<meta property="og:description" content="Сводка, приложения, уведомления и веб-панель в одном боте. Свой экземпляр, свой токен.">
+<meta property="og:image" content="https://vkardin.github.io/uni-homebot/assets/banner.png">
+<meta name="theme-color" content="#0f1114">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='%237aa7ff'/><stop offset='1' stop-color='%23d99a5b'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='%230f1114'/><text x='16' y='22' font-family='Arial' font-weight='800' font-size='15' text-anchor='middle' fill='url(%23g)'>U</text></svg>">
+<style>
+:root {
+  --bg: #0f1114; --card: #181b20; --line: rgba(128, 136, 150, .22); --text: #e8eaed; --dim: #8b93a1;
+  --accent: #7aa7ff; --warm: #d99a5b; --ok: #4fbf86; --code: #0b0d10;
+  --glow: color-mix(in srgb, var(--accent) 18%, transparent); --r: 18px;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f5f7; --card: #ffffff; --line: rgba(60, 70, 90, .14); --text: #15181d; --dim: #5d6573;
+    --accent: #3f74e6; --warm: #c27a35; --code: #15181d; --glow: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body {
+  margin: 0; color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(120% 55% at 50% -10%, var(--glow), transparent 60%) no-repeat, var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+.grad { background: linear-gradient(120deg, var(--accent), var(--warm)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+.logo { font-weight: 800; font-size: 22px; letter-spacing: .03em; }
+nav .links { display: flex; gap: 22px; font-size: 15px; }
+nav .links a { color: var(--dim); }
+nav .links a:hover { color: var(--text); text-decoration: none; }
+
+.hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
+.badge { display: inline-block; font-size: 13px; color: var(--dim); border: 1px solid var(--line); border-radius: 99px; padding: 4px 12px; margin-bottom: 18px; }
+.badge b { color: var(--ok); font-weight: 600; }
+h1 { font-size: clamp(36px, 6vw, 58px); line-height: 1.05; letter-spacing: -.02em; margin: 0 0 18px; }
+.lead { font-size: 19px; color: var(--dim); max-width: 34em; margin: 0 0 30px; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); color: var(--text); background: var(--card); }
+.btn:hover { text-decoration: none; border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.btn.primary { background: linear-gradient(120deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--warm))); color: #fff; border: 0; box-shadow: 0 8px 28px var(--glow); }
+.phone { justify-self: center; position: relative; }
+.phone img { width: min(320px, 78vw); height: auto; display: block; border-radius: 22px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 8px color-mix(in srgb, var(--card) 70%, transparent); }
+.phone::before { content: ""; position: absolute; inset: -60px; z-index: -1; background: radial-gradient(closest-side, var(--glow), transparent); }
+
+section { padding: 64px 0; }
+h2 { font-size: clamp(26px, 4vw, 36px); letter-spacing: -.01em; margin: 0 0 10px; }
+.sub { color: var(--dim); margin: 0 0 34px; max-width: 40em; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 22px; }
+.card .ic { font-size: 26px; line-height: 1; margin-bottom: 12px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: var(--dim); font-size: 15px; }
+
+.apps { display: flex; flex-wrap: wrap; gap: 10px; }
+.apps span { border: 1px solid var(--line); background: var(--card); border-radius: 99px; padding: 7px 14px; font-size: 14px; }
+
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.gallery figure { margin: 0; }
+.gallery img { width: 100%; height: auto; display: block; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, .3); }
+.gallery figcaption { text-align: center; color: var(--dim); font-size: 14px; margin-top: 10px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; margin-bottom: 26px; }
+.steps .card::before { counter-increment: s; content: counter(s); display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; margin-bottom: 12px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--accent), var(--warm)); }
+.term { background: var(--code); color: #e8eaed; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.term .bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); font-size: 13px; color: #8b93a1; }
+.term .tabs { display: flex; gap: 6px; }
+.term .tabs button { font: inherit; color: #8b93a1; background: none; border: 1px solid transparent; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.term .tabs button[aria-selected="true"] { color: #e8eaed; border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .05); }
+.copy { font: inherit; color: #8b93a1; background: none; border: 1px solid rgba(255, 255, 255, .14); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.copy:hover { color: #e8eaed; }
+pre { margin: 0; padding: 18px; overflow-x: auto; font: 14px/1.7 ui-monospace, Menlo, Consolas, monospace; }
+pre .c { color: #6b7380; }
+.note { color: var(--dim); font-size: 14px; margin-top: 14px; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92em; background: color-mix(in srgb, var(--text) 8%, transparent); padding: 1px 6px; border-radius: 6px; }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--dim); font-size: 14px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; gap: 36px; padding: 28px 0 48px; text-align: center; }
+  .lead { margin-left: auto; margin-right: auto; }
+  .cta { justify-content: center; }
+  .grid, .steps, .gallery { grid-template-columns: 1fr 1fr; }
+  nav .links a.opt { display: none; }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px; }
+  .grid, .steps { grid-template-columns: 1fr; }
+  section { padding: 44px 0; }
+  pre { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <span class="logo grad">UNI</span>
+    <div class="links">
+      <a class="opt" href="#features">Возможности</a>
+      <a class="opt" href="#screens">Экраны</a>
+      <a href="#install">Установка</a>
+      <a href="https://github.com/vkardin/uni-homebot">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <span class="badge"><b>●</b> UNI 2.0 · новое поколение</span>
+      <h1>Домашний сервер <span class="grad">в&nbsp;Telegram</span></h1>
+      <p class="lead">Сводка, приложения, уведомления и веб-панель в одном боте. Свой экземпляр на вашем сервере и свой бот-токен. Ставится одной командой.</p>
+      <div class="cta">
+        <a class="btn primary" href="#install">Установить</a>
+        <a class="btn" href="https://github.com/vkardin/uni-homebot/releases">Релизы</a>
+      </div>
+    </div>
+    <div class="phone"><img src="assets/screen-home.png" alt="Главный экран мини-приложения UNI: состояние сервера и приложения" width="422" height="717" onerror="this.parentNode.remove()"></div>
+  </header>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>Всё про сервер в одном чате</h2>
+    <p class="sub">Бот показывает только то, что у вас подключено. Остальное не мешает.</p>
+    <div class="grid">
+      <div class="card"><div class="ic">🗞</div><h3>Сводка каждый час</h3><p>Погода, курсы, до пяти новых новостей с пересказом локальной моделью и состояние сервера. Одно сообщение в день, которое тихо обновляется.</p></div>
+      <div class="card"><div class="ic">🖥</div><h3>Сервер под рукой</h3><p>CPU, память, диски, температура, графики за неделю, журналы служб, SMART и входы по SSH.</p></div>
+      <div class="card"><div class="ic">🧩</div><h3>Приложения плитками</h3><p>Подключаются прямо из чата. Бот сам находит контейнеры и ключи, вам остаётся нажать «Да».</p></div>
+      <div class="card"><div class="ic">📱</div><h3>Мини-приложение</h3><p>Веб-панель внутри Telegram: светлая и тёмная тема, чтение новостей без браузера, центр уведомлений.</p></div>
+      <div class="card"><div class="ic">🩹</div><h3>Чинит себя сам</h3><p>Упавшие задачи перезапускаются, опечатка в настройках не роняет бота. Ремонт сервера по PIN: службы, бот, перезагрузка.</p></div>
+      <div class="card"><div class="ic">👥</div><h3>Доступ для других</h3><p>Гости с отдельными правами. Владелец назначается одноразовым кодом при первом запуске.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="screens">
+  <div class="wrap">
+    <h2>Мини-приложение</h2>
+    <p class="sub">Всё, что есть в чате, есть и в панели. Тема берётся из Telegram.</p>
+    <div class="gallery">
+      <figure><img src="assets/screen-server.png" alt="Экран «Сервер»: нагрузка и графики" width="422" height="717" loading="lazy"><figcaption>Сервер</figcaption></figure>
+      <figure><img src="assets/screen-news.png" alt="Экран «Новости»: лента с пересказом" width="422" height="717" loading="lazy"><figcaption>Новости</figcaption></figure>
+      <figure><img src="assets/screen-money.png" alt="Экран «Деньги»: быстрая запись и курс" width="422" height="717" loading="lazy"><figcaption>Деньги</figcaption></figure>
+      <figure><img src="assets/screen-more.png" alt="Экран «Ещё»: инструменты и настройки" width="422" height="717" loading="lazy"><figcaption>Ещё</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Работает с вашими приложениями</h2>
+    <p class="sub">Подключаются из чата. Чего нет, можно поставить из каталога одной кнопкой.</p>
+    <div class="apps">
+      <span>🐳 Docker</span><span>🎞 Jellyfin</span><span>🎬 Radarr</span><span>📺 Sonarr</span><span>🧲 qBittorrent</span>
+      <span>🛡 AdGuard Home</span><span>🚀 Speedtest Tracker</span><span>🔎 changedetection.io</span><span>💰 Actual Budget</span>
+      <span>🧠 Ollama</span><span>🌐 Tailscale</span>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Установка за пару минут</h2>
+    <p class="sub">Нужен Linux-сервер: Ubuntu, Debian, Fedora, Arch или Alpine через Docker.</p>
+    <div class="steps">
+      <div class="card"><h3>Создайте бота</h3><p>Получите токен у <a href="https://t.me/BotFather">@BotFather</a>.</p></div>
+      <div class="card"><h3>Запустите команду</h3><p>Скрипт поставит зависимости и спросит токен.</p></div>
+      <div class="card"><h3>Станьте владельцем</h3><p>Отправьте боту <code>/start КОД</code> из журнала установки.</p></div>
+    </div>
+    <div class="term">
+      <div class="bar">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="sys">systemd</button>
+          <button role="tab" aria-selected="false" data-tab="docker">Docker</button>
+        </div>
+        <button class="copy" type="button">Копировать</button>
+      </div>
+<pre data-pane="sys"><span class="c"># номер версии из последнего релиза</span>
+V=2.0.0
+curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
+sudo bash homebot/deploy/install.sh</pre>
+<pre data-pane="docker" hidden><span class="c"># без systemd и без пакетов в системе</span>
+V=2.0.0
+curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
+cd homebot &amp;&amp; sudo bash deploy/install.sh --docker</pre>
+    </div>
+    <p class="note">Обновление: из чата (⚙️ Настройки → ⬆️ Обновление) или тем же скриптом на сервере. Ваш <code>.env</code> и данные не перезаписываются.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><span class="grad" style="font-weight:800">UNI</span> · домашний сервер в Telegram</span>
+    <span><a href="https://github.com/vkardin/uni-homebot">GitHub</a> · <a href="https://github.com/vkardin/uni-homebot/releases">Релизы</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var tabs = document.querySelectorAll('.tabs button');
+  var panes = document.querySelectorAll('.term pre');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+      panes.forEach(function (p) { p.hidden = p.dataset.pane !== t.dataset.tab; });
+    });
+  });
+  var copy = document.querySelector('.copy');
+  copy.addEventListener('click', function () {
+    var pre = document.querySelector('.term pre:not([hidden])');
+    var text = pre.innerText.split('\n').filter(function (l) { return l.charAt(0) !== '#'; }).join('\n');
+    var done = function () { copy.textContent = 'Скопировано'; setTimeout(function () { copy.textContent = 'Копировать'; }, 1600); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+  });
+})();
+</script>
+</body>
+</html>

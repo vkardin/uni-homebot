@@ -1,0 +1,85 @@
+# /etc/systemd/system/homebot.service
+#
+# Установка (подробности — в README.md):
+#   sudo cp deploy/homebot.service /etc/systemd/system/homebot.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now homebot
+#   journalctl -u homebot -f
+#
+# Пути по умолчанию: код и venv в /opt/homebot, секреты в /opt/homebot/.env (chmod 600),
+# состояние (какие задачи включены, выбранная модель) в /var/lib/homebot.
+
+[Unit]
+Description=HomeBot — Telegram control panel for the home server
+Documentation=file:///opt/homebot/README.md
+# network-online нужен, чтобы бот не стартовал раньше сети; tailscaled/ollama — только порядок запуска,
+# жёсткой зависимости нет: бот сам переживает их отсутствие.
+After=network-online.target tailscaled.service ollama.service
+Wants=network-online.target
+# Не больше 10 перезапусков за 5 минут — дальше systemd остановится и покажет failed.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=homebot
+Group=homebot
+WorkingDirectory=/opt/homebot
+EnvironmentFile=/opt/homebot/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=STATE_DIR=/var/lib/homebot
+# Кэш шрифтов matplotlib: /opt/homebot только для чтения, поэтому держим его в каталоге состояния.
+Environment=MPLCONFIGDIR=/var/lib/homebot/matplotlib
+# Чтение журнала systemd (SSH-входы, журналы служб) без root.
+SupplementaryGroups=systemd-journal
+
+ExecStart=/opt/homebot/.venv/bin/python -m homebot
+
+# Перезапуск при любом падении...
+Restart=always
+RestartSec=5
+# ...кроме ошибки конфигурации (неверный токен/.env): код 78 = EX_CONFIG, перезапуск бессмысленен.
+RestartPreventExitStatus=78
+# SIGTERM -> aiogram останавливает polling и фоновые задачи; на это хватает нескольких секунд.
+TimeoutStopSec=20
+
+# Каталог состояния: создаётся systemd, владелец — homebot.
+StateDirectory=homebot
+StateDirectoryMode=0750
+UMask=0077
+
+# Страховка от утечек: обычно бот занимает ~100–150 МБ (графики matplotlib — пиково больше).
+# Запас на конвертер файлов (ffmpeg, LibreOffice, Pillow работают как дочерние процессы бота и считаются тоже).
+MemoryMax=1536M
+
+# --- Усиление изоляции -------------------------------------------------------------
+# Боту нужны только: сеть, чтение /proc и /sys (psutil), D-Bus к systemd/logind (статусы; перезапуск и
+# питание — только то, что разрешает polkit-правило из update.sh) и запись в /var/lib/homebot.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+# read-only (а не true), чтобы psutil видел заполненность раздела /home, если он смонтирован отдельно
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+# Дополнительно можно включить фильтр системных вызовов; если что-то перестанет работать,
+# уберите его первым:
+#SystemCallFilter=@system-service
+#SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

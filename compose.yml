@@ -1,0 +1,42 @@
+# HomeBot в Docker:  sudo bash deploy/install.sh --docker   (или docker compose up -d --build, если .env уже готов)
+# Журнал: docker logs -f homebot
+#
+# Сеть хоста (network_mode: host): адреса из .env (127.0.0.1:8088 для панели, 127.0.0.1:2375 для прокси Docker,
+# локальные Radarr/Sonarr/Ollama) работают так же, как при обычной установке, и tailscale serve видит панель.
+#
+# В контейнере нет systemd: слежка за SSH-входами, службы, питание, SMART и обновление из чата недоступны.
+# Обновление — распаковать новый архив поверх и снова запустить install.sh --docker.
+name: homebot
+
+services:
+  homebot:
+    build: .
+    image: homebot:local
+    container_name: homebot
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    environment:
+      STATE_DIR: /data
+    volumes:
+      - homebot-data:/data
+    # Чтобы «Сервер» показывал процессы хоста, а не контейнера, раскомментируйте:
+    # pid: host
+    depends_on:
+      - docker-proxy
+
+  # Доступ к Docker ТОЛЬКО НА ЧТЕНИЕ (как deploy/docker-socket-proxy.yml): список контейнеров и журналы.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: homebot-docker-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "127.0.0.1:2375:2375"
+
+volumes:
+  homebot-data:

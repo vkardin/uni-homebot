@@ -1,0 +1,9 @@
+[Unit]
+Description=HomeBot: установка обновления, присланного в чат
+Documentation=file:///opt/homebot/README.md
+
+[Service]
+Type=oneshot
+# Обновлятор лежит в root-каталоге и ставится только полной установкой (update.sh): бот не может его подменить.
+ExecStart=/usr/local/sbin/homebot-updater
+TimeoutStartSec=1500

@@ -1,0 +1,9 @@
+[Unit]
+Description=HomeBot: установка приложения из каталога (только из белого списка)
+Documentation=file:///opt/homebot/README.md
+
+[Service]
+Type=oneshot
+# Скрипт лежит в root-каталоге и ставится только полной установкой (update.sh) при CATALOG_ENABLED=true.
+ExecStart=/usr/local/sbin/homebot-catalog
+TimeoutStartSec=1500
