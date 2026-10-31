@@ -4,6 +4,7 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:  # выпуск без push тега: версия берётся из homebot/__init__.py
 
 permissions:
   contents: write
@@ -19,7 +20,11 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt && pytest -q
       - name: Archive
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            V=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' homebot/__init__.py)
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
           git archive --format=tar.gz --prefix=homebot/ -o "homebot-$V.tar.gz" HEAD
           echo "V=$V" >> "$GITHUB_ENV"
       - name: Sign
@@ -34,4 +39,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           PRE=""; case "$V" in *-*|*b*|*rc*) PRE="--prerelease";; esac
-          gh release create "$GITHUB_REF_NAME" homebot-$V.tar.gz* --title "UNI $V" --generate-notes $PRE
+          gh release create "v$V" homebot-$V.tar.gz* --target "$GITHUB_SHA" --title "UNI $V" --generate-notes $PRE
