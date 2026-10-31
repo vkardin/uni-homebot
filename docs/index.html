@@ -182,6 +182,9 @@ footer a:hover { color: var(--text); }
       <div class="card"><div class="ic">📱</div><h3>Мини-приложение</h3><p>Веб-панель внутри Telegram: светлая и тёмная тема, чтение новостей без браузера, центр уведомлений.</p></div>
       <div class="card"><div class="ic">🩹</div><h3>Чинит себя сам</h3><p>Упавшие задачи перезапускаются, опечатка в настройках не роняет бота. Ремонт сервера по PIN: службы, бот, перезагрузка.</p></div>
       <div class="card"><div class="ic">👥</div><h3>Доступ для других</h3><p>Гости с отдельными правами. Владелец назначается одноразовым кодом при первом запуске.</p></div>
+      <div class="card"><div class="ic">🌍</div><h3>Каталог сообщества</h3><p>Home Assistant, Immich, Portainer и другие приложения сами находятся на сервере и попадают на доску одним касанием.</p></div>
+      <div class="card"><div class="ic">🔏</div><h3>Подписанные обновления</h3><p>Бот сам узнаёт о новой версии, проверяет подпись автора и делает бэкап перед установкой. Откат одной кнопкой.</p></div>
+      <div class="card"><div class="ic">🌐</div><h3>Три языка и любой Linux</h3><p>Русский, английский и украинский. Debian, Ubuntu, Fedora, Arch, Raspberry Pi или готовый Docker-образ.</p></div>
     </div>
   </div>
 </section>
@@ -229,11 +232,11 @@ footer a:hover { color: var(--text); }
         <button class="copy" type="button">Копировать</button>
       </div>
 <pre data-pane="sys"><span class="c"># номер версии из последнего релиза</span>
-V=7.3.0
+V=7.4.0
 curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
 sudo bash homebot/deploy/install.sh</pre>
 <pre data-pane="docker" hidden><span class="c"># без systemd и без пакетов в системе</span>
-V=7.3.0
+V=7.4.0
 curl -fsSL https://github.com/vkardin/uni-homebot/releases/download/v$V/homebot-$V.tar.gz | tar xz
 cd homebot &amp;&amp; sudo bash deploy/install.sh --docker</pre>
     </div>
@@ -244,7 +247,7 @@ cd homebot &amp;&amp; sudo bash deploy/install.sh --docker</pre>
 <footer>
   <div class="wrap">
     <span><span class="grad" style="font-weight:800">UNI</span> · домашний сервер в Telegram</span>
-    <span><a href="https://github.com/vkardin/uni-homebot">GitHub</a> · <a href="https://github.com/vkardin/uni-homebot/releases">Релизы</a></span>
+    <span><a href="https://github.com/vkardin/uni-homebot">GitHub</a> · <a href="https://github.com/vkardin/uni-homebot/releases">Релизы</a> · <a href="https://github.com/vkardin/uni-homebot/blob/main/docs/LEGAL.md">Правовые заметки</a></span>
   </div>
 </footer>
 
