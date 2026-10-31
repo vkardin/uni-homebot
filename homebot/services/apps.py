@@ -10,6 +10,7 @@ from homebot.config import Settings
 from homebot.services.actual import ActualService
 from homebot.services.adguard import AdGuardService
 from homebot.services.docker_api import DockerService
+from homebot.services.hass import HassService
 from homebot.services.jellyfin import JellyfinService
 from homebot.services.p2p import P2PService
 from homebot.services.qbittorrent import QbitService
@@ -31,11 +32,12 @@ class Apps:
     actual: ActualService | None = None
     p2p: P2PService | None = None  # у него свой экран (/p2p), в список «Приложения» не входит
     sites: SitesService | None = None  # changedetection.io: свой экран (/sites)
+    hass: HassService | None = None  # 🏠 Home Assistant: экран «Дом» в панели
 
     def available(self) -> list[str]:
         return [
             name
-            for name in ("docker", "speedtest", "qbit", "adguard", "jellyfin", "radarr", "sonarr", "actual")
+            for name in ("docker", "speedtest", "qbit", "adguard", "jellyfin", "radarr", "sonarr", "actual", "hass")
             if getattr(self, name)
         ]
 
@@ -68,6 +70,8 @@ def build_apps(session: aiohttp.ClientSession, s: Settings) -> Apps:
         )
     if s.changedetection_url and s.changedetection_api_key is not None:
         apps.sites = SitesService(session, s.changedetection_url, secret(s.changedetection_api_key))
+    if s.hass_url and s.hass_token is not None:
+        apps.hass = HassService(session, s.hass_url, secret(s.hass_token))
     if s.p2p_enabled:
         apps.p2p = P2PService(session, fiat=s.p2p_fiat, asset=s.p2p_asset, pay_types=s.p2p_methods, amount=s.p2p_amount)
     return apps

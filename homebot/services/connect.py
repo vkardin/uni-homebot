@@ -172,6 +172,7 @@ PROBES: dict[str, Callable[[Apps], Awaitable[str]]] = {
     "adguard": lambda a: _call(a.adguard.stats()),  # type: ignore[union-attr]
     "speedtest": lambda a: _call(a.speedtest.latest()),  # type: ignore[union-attr]
     "sites": _sites,
+    "hass": lambda a: a.hass.check(),  # type: ignore[union-attr]
     "actual": _actual,
     "p2p": _p2p,
 }

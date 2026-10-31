@@ -160,6 +160,8 @@ class Settings(BaseSettings):
     sonarr_url: str = "http://127.0.0.1:8989"
     sonarr_api_key: SecretStr | None = None
     sonarr_profile: str = ""  # профиль качества для сериалов; пусто — 1080p, если есть
+    hass_url: str = "http://127.0.0.1:8123"  # 🏠 Home Assistant
+    hass_token: SecretStr | None = None  # долгосрочный токен: профиль → Безопасность
     cleanup_min_days: int = Field(3, ge=0, le=365)  # просмотренное моложе N дней в «Чистке диска» не предлагаем
     # Actual Budget — через контейнер-обёртку actual-http-api (у самого Actual HTTP API нет)
     actual_url: str = "http://127.0.0.1:5007"
@@ -292,6 +294,7 @@ class Settings(BaseSettings):
         "actual_url",
         "changedetection_url",
         "libretranslate_url",
+        "hass_url",
     )
     @classmethod
     def _check_app_url(cls, value: str) -> str:

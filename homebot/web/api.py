@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import shutil
 import socket
 import time
@@ -857,7 +858,7 @@ async def server_repair_post(request: web.Request) -> Any:
 def _launcher_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import launcher
 
-    connected = {name for name in ("radarr", "sonarr", "jellyfin", "qbit", "adguard", "speedtest", "sites", "actual")
+    connected = {name for name in ("radarr", "sonarr", "jellyfin", "qbit", "adguard", "speedtest", "sites", "actual", "hass")
                  if getattr(c.apps, name, None) is not None}  # fmt: skip
     return {"apps": launcher.apps(c.settings, connected), "links": launcher.links(c.store)}
 
@@ -907,6 +908,34 @@ async def launcher_status(request: web.Request) -> Any:
     probes = {x["id"]: x["probe"] for x in st["apps"]} | {x["url"]: x["url"] for x in st["links"]}
     alive = await launcher.status(c.http, list(probes.values()))
     return {key: alive.get(url) for key, url in probes.items()}
+
+
+# ======================================================================= 🏠 Home Assistant
+@routes.get("/api/hass")
+async def hass_get(request: web.Request) -> Any:
+    from homebot.services.hass import as_json
+
+    c = _ctx(request)
+    hass = _service(c.apps.hass, "Home Assistant")
+    try:
+        return {"items": [as_json(e) for e in await hass.entities()]}
+    except AppError as exc:
+        raise ApiError(str(exc), 502) from None
+
+
+@routes.post("/api/hass")
+async def hass_post(request: web.Request) -> Any:
+    c = _ctx(request)
+    hass = _service(c.apps.hass, "Home Assistant")
+    entity = str((await _json(request)).get("id", ""))
+    if not re.fullmatch(r"[a-z_]+\.[a-z0-9_]+", entity):
+        raise ApiError("неверное устройство")
+    try:
+        await hass.act(entity)
+        await asyncio.sleep(0.6)  # Home Assistant меняет состояние не мгновенно
+        return {"state": await hass.state(entity)}
+    except AppError as exc:
+        raise ApiError(str(exc), 502) from None
 
 
 # ======================================================================= ⚡ сценарии

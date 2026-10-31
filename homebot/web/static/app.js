@@ -807,6 +807,23 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// 🏠 Home Assistant: свет, розетки и сцены — касанием, датчики — значением
+async function viewHome2(root) {
+  const box = h("div");
+  const names = { light: "Свет", switch: "Розетки и выключатели", input_boolean: "Переключатели", fan: "Вентиляторы", scene: "Сцены", script: "Скрипты", climate: "Климат", cover: "Шторы и ворота", lock: "Замки", sensor: "Датчики", binary_sensor: "Датчики" };
+  const draw = (items) => {
+    const groups = {};
+    items.forEach((e) => (groups[names[e.domain] || e.domain] = groups[names[e.domain] || e.domain] || []).push(e));
+    box.replaceChildren(...Object.entries(groups).map(([g, list]) => group(g, ...list.map((e) =>
+      e.can === "toggle" ? setRow(e.name, null, sw(e.on, async () => { const r = await post("/api/hass", { id: e.id }); e.state = r.state; e.on = r.state === "on"; }))
+      : e.can === "run" ? li(e.name, null, h("button", { class: "btn sm", onclick: act(() => post("/api/hass", { id: e.id }), "Запущено") }, "▶"))
+      : li(e.name, null, h("b", {}, e.state + (e.unit ? " " + e.unit : "")))))));
+    if (!items.length) box.replaceChildren(card(null, h("div", { class: "empty" }, "Home Assistant не вернул устройств.")));
+  };
+  draw((await get("/api/hass")).items);
+  root.append(box);
+}
+
 // ⚡ сценарии «если, то»
 async function viewRules(root) {
   const box = h("div");
@@ -905,6 +922,7 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  house: ["home", "Дом", "Home Assistant: свет, розетки, сцены, датчики", viewHome2],
   rules: ["spark", "Сценарии", "Если что-то случилось — сделать само", viewRules],
   servers: ["server", "Другие машины", "Метрики и копии бэкапов через агента UNI", viewServers],
   people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
@@ -912,7 +930,7 @@ const SUBS = {
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],
 };
-const SUB_TILE = { movies: "movies", sites: "sites" };
+const SUB_TILE = { movies: "movies", sites: "sites", house: "home" };
 let OFF = []; // 🧱 выключенные разделы (news, ai, tools…)
 const subOn = (k) => !OFF.includes(k) && (!SUB_TILE[k] || has(SUB_TILE[k]));
 function connectSheet(t) {

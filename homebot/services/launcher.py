@@ -23,7 +23,7 @@ KEY = "launcher_links"
 MAX_LINKS = 24
 ICONS = {
     "radarr": "🎬", "sonarr": "📺", "jellyfin": "🍿", "qbit": "🧲", "adguard": "🛡",
-    "speedtest": "🚀", "sites": "🔎", "actual": "💰",
+    "speedtest": "🚀", "sites": "🔎", "actual": "💰", "hass": "🏠",
 }  # fmt: skip
 _LOCAL = {"127.0.0.1", "localhost", "0.0.0.0", "::1"}
 _URL_RE = re.compile(r"^https?://[^\s/$.?#][^\s]*$", re.IGNORECASE)
