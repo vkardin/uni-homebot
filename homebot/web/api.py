@@ -650,7 +650,23 @@ async def chat(request: web.Request) -> Any:
     ]
     if not history:
         raise ApiError("нет сообщений")
-    return {"reply": await c.ollama.chat(history), "model": c.ollama.active_model}
+    from homebot.services.ollama import OllamaError
+
+    try:
+        return {"reply": await c.ollama.chat(history), "model": c.ollama.active_model}
+    except OllamaError as exc:
+        raise ApiError(str(exc)) from exc
+
+
+@routes.get("/api/report")
+async def report(request: web.Request) -> Any:
+    """📈 Отчёт за week | month | year по часовым итогам."""
+    from homebot.services import reports
+
+    period = request.query.get("period", "week")
+    if period not in reports.PERIODS:
+        raise ApiError("неизвестный период")
+    return {"period": period, "report": reports.as_json(await reports.make(_ctx(request).db, period))}
 
 
 @routes.post("/api/ask-server")
@@ -663,7 +679,13 @@ async def ask_server(request: web.Request) -> Any:
     if not question:
         raise ApiError("нет вопроса")
     fact_text = await server_help.facts(c.system, c.units, c.apps, c.tasks)
-    return {"reply": await server_help.answer(c.ollama, question, fact_text), "facts": fact_text}
+    from homebot.services.ollama import OllamaError, strip_think
+
+    try:
+        reply = strip_think(await server_help.answer(c.ollama, question, fact_text))
+    except OllamaError as exc:
+        raise ApiError(str(exc)) from exc
+    return {"reply": reply, "facts": fact_text}
 
 
 @routes.get("/api/reminders")

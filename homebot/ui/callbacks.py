@@ -60,6 +60,10 @@ class OllamaCb(CallbackData, prefix="o"):
     idx: int = -1  # индекс модели в списке (для PICK)
 
 
+class ReportCb(CallbackData, prefix="rp"):
+    period: str  # week | month | year (homebot.services.reports.PERIODS)
+
+
 class ChartCb(CallbackData, prefix="c"):
     period: str  # ключ из homebot.services.history.PERIODS
 

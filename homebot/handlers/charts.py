@@ -9,15 +9,16 @@ import socket
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, CallbackQuery, InputMediaPhoto, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from homebot.config import Settings
+from homebot.services import reports
 from homebot.services.charts import render_chart
 from homebot.services.db import Database
 from homebot.services.history import DEFAULT_PERIOD, PERIODS, load_period, summarize
 from homebot.ui import keyboards as kb
-from homebot.ui.callbacks import ChartCb, MenuAction, MenuCb
+from homebot.ui.callbacks import ChartCb, MenuAction, MenuCb, ReportCb
 from homebot.ui.texts import render_chart_caption
 from homebot.utils.telegram import edit_or_send
 
@@ -83,3 +84,34 @@ async def cb_period(call: CallbackQuery, callback_data: ChartCb, db: Database, s
         await message.edit_media(media=media, reply_markup=markup)
     else:
         await message.answer_photo(BufferedInputFile(png, "chart.png"), caption=caption, reply_markup=markup)
+
+
+# ------------------------------------------------------------------ отчёты 9.3
+def _report_kb(period: str) -> InlineKeyboardMarkup:
+    labels = {"week": "Неделя", "month": "Месяц", "year": "Год"}
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=("• " if p == period else "") + label, callback_data=ReportCb(period=p).pack())
+                for p, label in labels.items()
+            ]
+        ]
+    )
+
+
+@router.message(Command("report"))
+async def cmd_report(message: Message, db: Database, settings: Settings) -> None:
+    arg = (message.text or "").partition(" ")[2].strip().lower()
+    period = {"месяц": "month", "год": "year", "неделя": "week"}.get(arg, arg) if arg else "week"
+    if period not in reports.PERIODS:
+        period = "week"
+    rep = await reports.make(db, period)
+    await message.answer(reports.render(rep, period, settings.tz), reply_markup=_report_kb(period))
+
+
+@router.callback_query(ReportCb.filter())
+async def cb_report(call: CallbackQuery, callback_data: ReportCb, db: Database, settings: Settings) -> None:
+    await call.answer()
+    period = callback_data.period if callback_data.period in reports.PERIODS else "week"
+    rep = await reports.make(db, period)
+    await edit_or_send(call, reports.render(rep, period, settings.tz), _report_kb(period))

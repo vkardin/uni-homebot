@@ -46,6 +46,7 @@ COMMANDS = [
     BotCommand(command="tools", description="Конвертер файлов и инструменты"),
     BotCommand(command="server", description="Сервер: состояние, сеть, приложения"),
     BotCommand(command="status", description="Состояние сервера"),
+    BotCommand(command="report", description="Отчёт о сервере: неделя, месяц, год"),
     BotCommand(command="why", description="Спросить о сервере: /why почему тормозит"),
     BotCommand(command="setup", description="Начало работы: что ещё настроить"),
     BotCommand(command="doctor", description="Самопроверка: всё ли подключено и работает"),

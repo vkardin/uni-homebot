@@ -148,6 +148,15 @@ def _register_jobs(
     # Служебные задачи: работают всегда, в списке кнопок не показываются.
     sampler = SamplerJob(db=db, system=system, interval=settings.sample_interval_sec, retention_days=settings.history_retention_days)
     tasks.register("sampler", "История метрик", "", sampler.run, hidden=True)
+    from homebot.jobs.weekly_report import WeeklyReportJob
+
+    tasks.register(
+        "weekly_report",
+        "Отчёт за неделю",
+        "По понедельникам в 10:00: средняя нагрузка, пики, рост диска. Месяц и год — /report",
+        WeeklyReportJob(bot=bot, admin_id=admin, db=db, store=store, tz=settings.tz).run,
+        default_enabled=True,
+    )
     tasks.register("reminders", "Напоминания", "", RemindersJob(bot=bot, admin_id=admin, db=db, tz=settings.tz).run, hidden=True)
 
     restartable_units = PowerService(settings.restartable, power_enabled=settings.power_enabled).restartable

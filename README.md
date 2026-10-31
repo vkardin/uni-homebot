@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-9.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-9.3.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-9.2.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-9.3.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,15 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 📈 Отчёты (9.3)
+
+`/report` (неделя), `/report месяц`, `/report год`, в панели «Сервер → Отчёт». Средняя нагрузка CPU и памяти,
+пики, максимум температуры, рост диска, самый нагруженный час и сравнение с прошлым таким же периодом. Подробные
+метрики хранятся `HISTORY_RETENTION_DAYS` (30 дней), а перед удалением сворачиваются в часовые итоги (таблица
+`metrics_hourly` в `homebot.db`), которые живут 400 дней. Отчёт за неделю приходит сам по понедельникам в 10:00
+(задача «Отчёт за неделю»). `/doctor` показывает ключи `.env`, которых UNI не знает: опечатки или устаревшие
+параметры. Бот такие строки не удаляет. API: `GET /api/report?period=week|month|year`.
 
 ### 🩺 Вопросы о сервере (9.2)
 

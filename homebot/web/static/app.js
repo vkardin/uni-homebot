@@ -227,10 +227,35 @@ async function viewServer(root) {
     } catch (e) { histBox.replaceChildren(failure(e)); }
   }
   hist();
+  root.append(reportCard());
   root.append(
     has("docker") ? await dockerCard() : null, await appsCards(),
     fold("Процессы", () => get("/api/top"), (list) => ({ sum: list.length ? list[0].name : "", body: list.map((p) => row(p.name, `PID ${p.pid}`, h("span", { class: "dim" }, fmtBytes(p.rss) + " · " + num(p.mem_percent, 1) + "%"))) })),
     await logsCard());
+}
+
+// 📈 9.3: отчёт за неделю, месяц, год (часовые итоги, сравнение с прошлым периодом)
+function reportCard() {
+  const box = h("div"), names = { week: "Неделя", month: "Месяц", year: "Год" };
+  let period = "week";
+  const chips = () => h("div", { class: "chips" }, Object.keys(names).map((p) => h("button", { class: "chip" + (p === period ? " on" : ""), onclick: () => { period = p; load(); } }, names[p])));
+  const delta = (now, before) => before == null ? "" : Math.abs(now - before) < 1 ? " · как раньше" : ` · ${now > before ? "+" : "−"}${Math.abs(now - before).toFixed(0)} п.п.`;
+  async function load() {
+    box.replaceChildren(card("Отчёт", chips(), loading()));
+    try {
+      const r = (await get("/api/report?period=" + period)).report;
+      if (!r) { box.replaceChildren(card("Отчёт", chips(), h("div", { class: "dim" }, "Истории пока нет: первый час появится через час после запуска."))); return; }
+      box.replaceChildren(card("Отчёт", chips(),
+        r.points.length > 1 ? lineChart([{ name: "CPU %", color: "var(--neon)", points: r.points.map((p) => [p[0], p[1]]) }, { name: "RAM %", color: "var(--pink)", points: r.points.map((p) => [p[0], p[2]]) }], { minY: 0, maxY: 100, fmtY: (v) => Math.round(v) + "%" }) : null,
+        row("CPU", `в среднем ${pct(r.cpu_avg)}${delta(r.cpu_avg, r.prev_cpu_avg)}`, h("span", { class: "dim" }, "пик " + pct(r.cpu_max))),
+        row("Память", `в среднем ${pct(r.ram_avg)}${delta(r.ram_avg, r.prev_ram_avg)}`, h("span", { class: "dim" }, "пик " + pct(r.ram_max))),
+        r.temp_max != null ? row("Температура", "максимум", h("span", { class: "dim" }, Math.round(r.temp_max) + "°")) : null,
+        r.disk_end != null ? row("Диск /", r.disk_start != null ? `было ${pct(r.disk_start)}` : "", h("span", { class: "dim" }, pct(r.disk_end))) : null,
+        r.coverage < 0.9 ? h("div", { class: "dim" }, `Данные есть за ${Math.round(r.coverage * 100)}% периода.`) : null));
+    } catch (e) { box.replaceChildren(failure(e)); }
+  }
+  load();
+  return box;
 }
 
 async function dockerCard() {

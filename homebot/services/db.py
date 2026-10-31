@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS metrics (
     temp REAL,
     disk REAL
 );
+CREATE TABLE IF NOT EXISTS metrics_hourly (
+    ts       INTEGER PRIMARY KEY,
+    cpu_avg  REAL NOT NULL,
+    cpu_max  REAL NOT NULL,
+    ram_avg  REAL NOT NULL,
+    ram_max  REAL NOT NULL,
+    temp_max REAL,
+    disk     REAL,
+    samples  INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS reminders (
     id     INTEGER PRIMARY KEY AUTOINCREMENT,
     due_ts INTEGER NOT NULL,
@@ -64,6 +74,20 @@ class MetricRow:
     swap: float
     temp: float | None
     disk: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class HourRow:
+    """Час истории для отчётов: среднее и пик. Хранится долго (по умолчанию 400 дней)."""
+
+    ts: int
+    cpu_avg: float
+    cpu_max: float
+    ram_avg: float
+    ram_max: float
+    temp_max: float | None
+    disk: float | None
+    samples: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +213,40 @@ class Database:
 
     async def prune_metrics(self, before_ts: int) -> int:
         return await self._run(lambda c: c.execute("DELETE FROM metrics WHERE ts < ?", (before_ts,)).rowcount)
+
+    async def rollup_hours(self, until_ts: int) -> int:
+        """Свернуть подробные метрики в часовые строки (среднее и пик) для всех полных часов до `until_ts`.
+
+        Часы, уже свёрнутые раньше, пересчитываются только последний: так подробные строки можно удалять
+        по сроку хранения, а годовые отчёты остаются.
+        """
+
+        def roll(c: sqlite3.Connection) -> int:
+            last = c.execute("SELECT MAX(ts) FROM metrics_hourly").fetchone()[0]
+            start = int(last) if last is not None else 0
+            end = until_ts - until_ts % 3600
+            return c.execute(
+                "INSERT OR REPLACE INTO metrics_hourly (ts, cpu_avg, cpu_max, ram_avg, ram_max, temp_max, disk, samples) "
+                "SELECT ts - ts % 3600 AS h, AVG(cpu), MAX(cpu), AVG(ram), MAX(ram), MAX(temp), MAX(disk), COUNT(*) "
+                "FROM metrics WHERE ts >= ? AND ts < ? GROUP BY h",
+                (start, end),
+            ).rowcount
+
+        return await self._run(roll)
+
+    async def hourly_since(self, since_ts: int, until_ts: int | None = None) -> list[HourRow]:
+        def query(c: sqlite3.Connection) -> list[HourRow]:
+            rows = c.execute(
+                "SELECT ts, cpu_avg, cpu_max, ram_avg, ram_max, temp_max, disk, samples FROM metrics_hourly "
+                "WHERE ts >= ? AND ts < ? ORDER BY ts",
+                (since_ts, until_ts if until_ts is not None else 2**62),
+            ).fetchall()
+            return [HourRow(*row) for row in rows]
+
+        return await self._run(query)
+
+    async def prune_hourly(self, before_ts: int) -> int:
+        return await self._run(lambda c: c.execute("DELETE FROM metrics_hourly WHERE ts < ?", (before_ts,)).rowcount)
 
     # ---------------------------------------------------------- напоминания
     async def add_reminder(self, due_ts: int, text: str, repeat: str = "", owner: int = 0) -> int:
