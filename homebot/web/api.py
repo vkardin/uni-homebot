@@ -653,6 +653,19 @@ async def chat(request: web.Request) -> Any:
     return {"reply": await c.ollama.chat(history), "model": c.ollama.active_model}
 
 
+@routes.post("/api/ask-server")
+async def ask_server(request: web.Request) -> Any:
+    """🩺 Вопрос о сервере: модель отвечает по свежим фактам и ничего не выполняет."""
+    from homebot.services import server_help
+
+    c = _ctx(request)
+    question = str((await _json(request)).get("question", "")).strip()
+    if not question:
+        raise ApiError("нет вопроса")
+    fact_text = await server_help.facts(c.system, c.units, c.apps, c.tasks)
+    return {"reply": await server_help.answer(c.ollama, question, fact_text), "facts": fact_text}
+
+
 @routes.get("/api/reminders")
 async def reminders_list(request: web.Request) -> Any:
     items = await _ctx(request).db.pending_reminders(50, owner=_owner(request))

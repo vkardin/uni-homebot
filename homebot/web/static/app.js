@@ -467,14 +467,18 @@ function fold(title, loader, render) {
 }
 function chatCard() {
   const history = [], log = h("div", { class: "grid" }), input = h("input", { placeholder: "Спросить локальную модель…", enterkeyhint: "send" });
+  let about = false; // 🩺 «о сервере»: ответ по свежим фактам, без истории
+  const mode = seg([[false, "Обо всём"], [true, "О сервере"]], false, (v) => { about = v; input.placeholder = v ? "Почему тормозит? Что съело диск?" : "Спросить локальную модель…"; });
   const send = act(async () => {
     const t = input.value.trim(); if (!t) return; input.value = "";
-    history.push({ role: "user", content: t }); log.append(h("div", { class: "bubble me" }, t));
+    log.append(h("div", { class: "bubble me" }, t));
     const wait = h("div", { class: "bubble bot dim" }, "думаю… (на процессоре это может занять минуту)"); log.append(wait);
+    if (about) { try { const r = await post("/api/ask-server", { question: t }); wait.className = "bubble bot"; wait.textContent = r.reply; } catch (e) { wait.className = "bubble bot bad"; wait.textContent = "⚠️ " + e.message; } return; }
+    history.push({ role: "user", content: t });
     try { const r = await post("/api/chat", { messages: history }); history.push({ role: "assistant", content: r.reply }); wait.className = "bubble bot"; wait.textContent = r.reply; } catch (e) { wait.className = "bubble bot bad"; wait.textContent = "⚠️ " + e.message; history.pop(); }
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.nextSibling.click(); });
-  return card("Спросить ИИ", log, h("div", { class: "inline" }, input, h("button", { class: "btn", onclick: send, "aria-label": "Отправить" }, "→")));
+  return card("Спросить ИИ", mode, log, h("div", { class: "inline" }, input, h("button", { class: "btn", onclick: send, "aria-label": "Отправить" }, "→")));
 }
 async function remindersCard() {
   const box = card("Напоминания", loading()), text = h("input", { placeholder: "завтра 9:00 оплатить · каждый пн 9:00 планёрка" });

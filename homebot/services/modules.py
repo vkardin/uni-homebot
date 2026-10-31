@@ -35,7 +35,7 @@ class Feature:
 
 FEATURES: tuple[Feature, ...] = (
     Feature("news", "Новости", "🗞", "NEWS", ("news",), ("news",), ("news",)),
-    Feature("assistant", "Ассистент", "🤖", "OLLAMA", ("ollama",), (), ("ai",)),
+    Feature("assistant", "Ассистент", "🤖", "OLLAMA", ("ollama", "why", "ask"), (), ("ai",)),
     Feature("reminders", "Напоминания", "⏰", "REMINDERS", ("remind", "reminders"), ("reminders",), ("reminders",)),
     Feature("notes", "Заметки", "📝", "NOTES", ("note", "notes"), (), ("notes",)),
     Feature("tools", "Инструменты", "🧰", "TOOLS", ("tools",), (), ("tools",)),

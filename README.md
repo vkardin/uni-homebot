@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-9.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-9.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-9.1.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-9.2.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,13 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🩺 Вопросы о сервере (9.2)
+
+`/why почему тормозит?` или `/why что съело диск?` (или «Спросить ИИ» → «О сервере» в панели). Бот собирает
+свежие факты: процессор, память, диски, температуру, самые тяжёлые процессы, упавшие службы и контейнеры,
+остановленные фоновые задачи. Локальная модель Ollama отвечает только по ним. Она ничего не выполняет: если нужно
+действие, советует команду или кнопку, решаете вы. Нужен включённый Ollama. API: `POST /api/ask-server`.
 
 ### 🏠 Home Assistant (9.1)
 
