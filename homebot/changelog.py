@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 WHATS_NEW: dict[str, tuple[str, ...]] = {
+    "7.3.0": (
+        "🌍 Каталог сообщества в панели (Ещё): Home Assistant, Immich, Portainer и ещё десяток приложений",
+        "🔍 Запущенные контейнеры находятся сами и добавляются на доску одним касанием",
+    ),
     "7.2.0": (
         "🐳 Готовый образ для Docker на amd64 и arm64 (Raspberry Pi 4/5): docker compose -f compose.ghcr.yml up -d",
         "🐧 Установка на Debian, Ubuntu, Fedora и Arch проверяется на каждом коммите",

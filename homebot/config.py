@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     update_repo: str = "vkardin/uni-homebot"
     # 🔏 Ставить из чата только архивы с подписью автора (ключи — homebot/release_keys.txt)
     update_require_signature: bool = False
+    # 🌍 Каталог сообщества (шаблоны приложений для доски); пусто — только встроенный
+    community_catalog_url: str = "https://raw.githubusercontent.com/vkardin/uni-homebot/main/catalog/apps.json"
 
     # --- Мониторинг и алерты --------------------------------------------------
     # Через запятую. Имена systemd-юнитов: ssh, tailscaled, ollama, docker ...

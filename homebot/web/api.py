@@ -909,6 +909,53 @@ async def launcher_status(request: web.Request) -> Any:
     return {key: alive.get(url) for key, url in probes.items()}
 
 
+# ======================================================================= 🌍 каталог сообщества
+async def _community_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import community, launcher
+
+    apps = await community.load(c.http, c.settings.community_catalog_url)
+    found: dict[str, str] = {}
+    if c.apps.docker is not None:
+        try:
+            found = community.match(apps, await asyncio.wait_for(c.apps.docker.containers_raw(), 8))
+        except Exception as exc:  # Docker не ответил — просто без «найдено»
+            log.info("Community scan failed: %s", exc)
+    have = {x.get("title") for x in launcher.links(c.store)}
+    items = [
+        {"id": a["id"], "title": a["title"], "icon": a["icon"], "about": a["about"], "found": a["id"] in found,
+         "url": launcher.reachable(found[a["id"]], c.settings.web_url) if a["id"] in found else "", "added": a["title"] in have}
+        for a in apps
+    ]  # fmt: skip
+    items.sort(key=lambda x: (not x["found"], x["title"]))
+    return {"items": items}
+
+
+@routes.get("/api/community")
+async def community_get(request: web.Request) -> Any:
+    return await _community_state(_ctx(request))
+
+
+@routes.post("/api/community")
+async def community_post(request: web.Request) -> Any:
+    from homebot.services import launcher
+
+    c = _ctx(request)
+    body = await _json(request)
+    state = await _community_state(c)
+    item = next((x for x in state["items"] if x["id"] == body.get("id")), None)
+    url = str(body.get("url") or (item or {}).get("url") or "")
+    if item is None:
+        raise ApiError("такого шаблона нет", 404)
+    link = launcher.clean_link(item["title"], url, item["icon"])
+    if link is None:
+        raise ApiError("укажите адрес http(s)://")
+    links = [x for x in launcher.links(c.store) if x.get("url") != link["url"]]
+    if len(links) >= launcher.MAX_LINKS:
+        raise ApiError(f"не больше {launcher.MAX_LINKS} ссылок")
+    await c.store.set(launcher.KEY, [*links, link])
+    return await _community_state(c)
+
+
 # ======================================================================= 🧭 начало работы
 def _setup_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import setup

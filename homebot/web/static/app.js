@@ -806,6 +806,22 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// 🌍 каталог сообщества: шаблоны приложений; найденные контейнеры — сверху, добавление на доску одним касанием
+async function viewCommunity(root) {
+  const box = h("div");
+  const draw = (st) => box.replaceChildren(
+    h("div", { class: "dim small", style: "margin:0 4px 10px" }, "Найденные на сервере приложения — сверху. Нет нужного? Шаблоны присылают в catalog/apps.json на GitHub."),
+    group(null, ...st.items.map((x) => li(x.icon + "  " + x.title, (x.found ? "🟢 найдено · " : "") + x.about, x.added ? h("span", { class: "dim" }, "на доске") : null,
+      x.added ? null : () => addFrom(x, draw)))));
+  draw(await get("/api/community"));
+  root.append(box);
+}
+function addFrom(x, draw) {
+  const url = h("input", { value: x.url || "", placeholder: "http://адрес:порт", inputmode: "url" });
+  sheet(h("div", { class: "sheet-title" }, x.icon + " " + x.title), h("div", { class: "dim small" }, x.found ? "Нашёл контейнер, адрес подставлен." : "Контейнер не найден: впишите адрес сами."), url,
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/community", { id: x.id, url: url.value })); closeSheet(); }, "На доске") }, "Добавить на доску"));
+}
+
 async function viewTools(root) {
   const d = await get("/api/tools");
   root.append(card("Как пользоваться",
@@ -821,6 +837,7 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],
 };
