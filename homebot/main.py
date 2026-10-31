@@ -344,6 +344,11 @@ def _register_jobs(
     )
     tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)
     from homebot.jobs.fleet_watch import FleetWatchJob
+    from homebot.jobs.rules_watch import RulesJob
+
+    rules_job = RulesJob(bot=bot, admin_id=admin, store=store, system=system, units=units, apps=apps,
+                         power=PowerService(settings.restartable, power_enabled=settings.power_enabled))  # fmt: skip
+    tasks.register("rules", "Сценарии", "", rules_job.run, hidden=True)  # без правил ничего не делает
 
     fleet_job = FleetWatchJob(bot=bot, admin_id=admin, store=store, http=http, state_dir=settings.state_dir,
                               disk_limit=settings.alert_disk_percent)  # fmt: skip

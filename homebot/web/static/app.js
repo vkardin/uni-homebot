@@ -807,6 +807,30 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// ⚡ сценарии «если, то»
+async function viewRules(root) {
+  const box = h("div");
+  const draw = (st) => box.replaceChildren(
+    st.items.length ? group(null, ...st.items.map((r) => setRow(r.text, `не чаще раза в ${r.cooldown} мин`, h("div", { class: "inline" },
+      sw(r.on, async () => draw(await post("/api/rules", { op: "toggle", id: r.id }))),
+      h("button", { class: "btn sm bad", onclick: act(async () => draw(await post("/api/rules", { op: "remove", id: r.id })), "Удалено") }, "✕"))))) : card(null, h("div", { class: "empty" }, "Сценариев пока нет. Например: «Если диск выше 90 → написать мне» или «Если контейнер jellyfin не работает → перезапустить его».")),
+    h("button", { class: "btn primary block", onclick: () => addRule(st, draw) }, "＋ Новый сценарий"));
+  draw(await get("/api/rules"));
+  root.append(box);
+}
+function addRule(st, draw) {
+  const sel = (obj) => h("select", {}, ...Object.entries(obj).map(([k, v]) => h("option", { value: k }, v)));
+  const when = sel(st.when), then = sel(st.then);
+  const value = h("input", { placeholder: "Порог, например 90", inputmode: "decimal" }), target = h("input", { placeholder: "Имя службы или контейнера" });
+  const thenTarget = h("input", { placeholder: "Что перезапустить (пусто — то же)" }), cooldown = h("input", { value: "30", inputmode: "numeric" });
+  const sync = () => { const num = st.numeric.includes(when.value); value.hidden = !num; target.hidden = num; thenTarget.hidden = then.value === "notify"; };
+  when.addEventListener("change", sync); then.addEventListener("change", sync); sync();
+  sheet(h("div", { class: "sheet-title" }, "Новый сценарий"), field("Если", when), value, target, field("То", then), thenTarget,
+    st.restartable.length ? h("div", { class: "dim small" }, "Службы, которые можно перезапускать: " + st.restartable.join(", ")) : null,
+    field("Не чаще раза в, мин", cooldown),
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/rules", { op: "add", when: when.value, value: value.value, target: target.value, then: then.value, then_target: thenTarget.value, cooldown: Number(cooldown.value) || 30 })); closeSheet(); }, "Сохранено") }, "Сохранить"));
+}
+
 // 🛰 другие машины: метрики агентов и копии бэкапов
 async function viewServers(root) {
   const box = h("div");
@@ -881,6 +905,7 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  rules: ["spark", "Сценарии", "Если что-то случилось — сделать само", viewRules],
   servers: ["server", "Другие машины", "Метрики и копии бэкапов через агента UNI", viewServers],
   people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
   community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],

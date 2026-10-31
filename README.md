@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-8.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-9.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-8.1.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-9.0.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,14 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### ⚡ Сценарии «если, то» (9.0)
+
+«Ещё → Сценарии» в панели. Условия: процессор, память, диск или температура выше порога, служба упала,
+контейнер не работает, курс P2P выше или ниже. Действия: написать мне, перезапустить контейнер, перезапустить
+службу. Перезапуск идёт теми же путями, что и кнопки, и только для разрешённого (`DOCKER_RESTART_ENABLED`,
+`RESTART_SERVICES`). Сценарий срабатывает, когда условие становится верным, и не чаще раза в N минут
+(по умолчанию 30). Проверка — раз в минуту, правила хранятся в `state.json` (`rules`).
 
 ### 🛰 Другие машины (8.1)
 

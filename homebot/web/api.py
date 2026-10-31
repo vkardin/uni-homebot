@@ -909,6 +909,49 @@ async def launcher_status(request: web.Request) -> Any:
     return {key: alive.get(url) for key, url in probes.items()}
 
 
+# ======================================================================= ⚡ сценарии
+def _rules_state(c: Ctx) -> dict[str, Any]:
+    from dataclasses import asdict
+
+    from homebot.services import rules
+
+    items = [{**asdict(r), "text": rules.describe(r)} for r in rules.load(c.store)]
+    return {"items": items, "when": rules.WHEN, "then": rules.THEN, "numeric": sorted(rules.NUMERIC),
+            "restartable": list(c.power.restartable) if c.power is not None else []}  # fmt: skip
+
+
+@routes.get("/api/rules")
+async def rules_get(request: web.Request) -> Any:
+    return _rules_state(_ctx(request))
+
+
+@routes.post("/api/rules")
+async def rules_post(request: web.Request) -> Any:
+    from dataclasses import replace
+
+    from homebot.services import rules
+
+    c = _ctx(request)
+    body = await _json(request)
+    items = rules.load(c.store)
+    op, rid = body.get("op"), str(body.get("id", ""))
+    if op == "add":
+        if len(items) >= rules.MAX_RULES:
+            raise ApiError(f"не больше {rules.MAX_RULES} сценариев")
+        try:
+            items.append(rules.make({k: v for k, v in body.items() if k not in {"op", "id"}}))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+    elif op == "remove":
+        items = [r for r in items if r.id != rid]
+    elif op == "toggle":
+        items = [replace(r, on=not r.on) if r.id == rid else r for r in items]
+    else:
+        raise ApiError("неизвестное действие")
+    await rules.save(c.store, items)
+    return _rules_state(c)
+
+
 # ======================================================================= 🛰 другие машины
 async def _servers_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import fleet
