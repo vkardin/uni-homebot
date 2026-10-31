@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-7.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-7.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-7.1.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-7.2.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -156,6 +156,9 @@ tar xzf homebot-X.Y.Z.tar.gz && cd homebot && sudo bash deploy/install.sh --dock
 * «Сервер» показывает процессы контейнера; чтобы видеть процессы хоста, раскомментируйте `pid: host` в `compose.yml`.
 * LibreOffice в образ не входит (~400 МБ): `docker compose build --build-arg OFFICE=1`.
 * На Alpine для скрипта нужен bash: `apk add bash docker docker-cli-compose`.
+* **Готовый образ (7.2)** для amd64 и arm64 (Raspberry Pi 4/5), без сборки:
+  `docker compose -f compose.ghcr.yml up -d`; обновление — `pull` и снова `up -d`. Образ собирается из тега
+  `vX.Y.Z` (`.github/workflows/docker.yml`) и лежит в `ghcr.io/vkardin/uni-homebot`.
 
 ### Вручную
 
@@ -211,6 +214,13 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🐧 Любой Linux и Raspberry Pi (7.2)
+
+Установщик ставит пакеты через apt, dnf, pacman или apk (`deploy/pkg.sh`). Теперь это проверяется на каждом
+коммите: Debian 12, Ubuntu 24.04, Fedora 41 и Arch ставят базовые пакеты через `pkg.sh` и запускают бота
+(`.github/workflows/ci.yml`, задача `packages`). Для Raspberry Pi 4/5 (64-битная ОС) подходит обычная установка
+или готовый образ `compose.ghcr.yml`. Для существующих установок ничего не меняется.
 
 ### 🆕 Обновления с GitHub и подпись (7.1)
 

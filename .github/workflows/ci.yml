@@ -22,3 +22,21 @@ jobs:
       - run: ruff format --check .
       - run: pytest -q
       - run: node --check homebot/web/static/app.js
+
+  # Установщик знает не только apt: проверяем, что имена пакетов есть в других дистрибутивах.
+  packages:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:12", "ubuntu:24.04", "fedora:41", "archlinux:latest"]
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install base packages through deploy/pkg.sh
+        shell: bash
+        run: |
+          . deploy/pkg.sh
+          echo "manager: $PKG_MGR"
+          pkg_install python ffmpeg poppler-utils tesseract || { echo "failed: $(pkg_hint python ffmpeg poppler-utils tesseract)"; exit 1; }
+          python3 -m venv /tmp/v && /tmp/v/bin/pip install -q -r requirements.txt && /tmp/v/bin/python -c "import homebot.config"

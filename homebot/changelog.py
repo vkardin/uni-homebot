@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 WHATS_NEW: dict[str, tuple[str, ...]] = {
+    "7.2.0": (
+        "🐳 Готовый образ для Docker на amd64 и arm64 (Raspberry Pi 4/5): docker compose -f compose.ghcr.yml up -d",
+        "🐧 Установка на Debian, Ubuntu, Fedora и Arch проверяется на каждом коммите",
+    ),
     "7.1.0": (
         "🆕 Бот сам узнаёт о новой версии на GitHub и по кнопке скачивает её: «⬇️ Скачать и проверить»",
         "🔏 Подпись автора: архив с .sig проверяется, поддельный не поставится; каналы stable и beta",
