@@ -342,7 +342,16 @@ def _register_jobs(
         extra=parse_extra_paths(settings.backup_paths),
         tz=settings.tz,
     )
-    tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)  # расписание и кнопки — в ⚙️ Настройки → Бэкап
+    tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)
+    if settings.update_channel != "off" and not settings.homebot_in_container:
+        from homebot.jobs.release_watch import ReleaseWatchJob
+
+        watch = ReleaseWatchJob(
+            bot=bot, admin_id=admin, store=store, http=http, repo=settings.update_repo, channel=settings.update_channel
+        )
+        tasks.register(
+            "releases", "Новые версии", "🆕 Раз в сутки проверяет релизы UNI на GitHub", watch.run, default_enabled=True
+        )  # расписание и кнопки — в ⚙️ Настройки → Бэкап
     if settings.kernel_watch_enabled:
         kernel_job = KernelWatchJob(bot=bot, admin_id=admin, store=store)
         tasks.register(

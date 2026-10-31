@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     homebot_in_container: bool = False
     # 📦 Каталог: бот может ставить приложения из белого списка (служба ставится update.sh только при true)
     catalog_enabled: bool = False
+    # 🆕 Новые версии с GitHub: stable — обычные релизы, beta — и тестовые, off — не проверять
+    update_channel: str = "stable"
+    update_repo: str = "vkardin/uni-homebot"
+    # 🔏 Ставить из чата только архивы с подписью автора (ключи — homebot/release_keys.txt)
+    update_require_signature: bool = False
 
     # --- Мониторинг и алерты --------------------------------------------------
     # Через запятую. Имена systemd-юнитов: ssh, tailscaled, ollama, docker ...
@@ -247,6 +252,14 @@ class Settings(BaseSettings):
         value = value.strip().lower()
         if value not in {"ru", "en", "uk"}:
             raise ValueError("ожидается ru, en или uk")
+        return value
+
+    @field_validator("update_channel")
+    @classmethod
+    def _check_channel(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in {"stable", "beta", "off"}:
+            raise ValueError("ожидается stable, beta или off")
         return value
 
     @field_validator("log_level")

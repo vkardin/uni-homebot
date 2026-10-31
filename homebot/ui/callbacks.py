@@ -284,6 +284,7 @@ class UpdateAction(StrEnum):
     GO = "go"  # установить присланный архив (sig — начало его sha256)
     NO = "no"  # отмена
     ROLLBACK = "rb"  # вернуть прежнюю версию; go=0 — спросить, go=1 — выполнить
+    FETCH = "f"  # 🆕 скачать релиз с GitHub (sig — версия)
 
 
 class UpdateCb(CallbackData, prefix="u"):

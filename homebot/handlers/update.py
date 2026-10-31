@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 
+import aiohttp
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
@@ -13,7 +14,7 @@ from aiogram.types import CallbackQuery, Message
 from homebot import __version__
 from homebot.config import Settings
 from homebot.services import backup as backup_svc
-from homebot.services import selfupdate
+from homebot.services import releases, selfupdate, signing
 from homebot.services.db import Database
 from homebot.services.power import is_fresh
 from homebot.services.state import StateStore
@@ -32,6 +33,24 @@ WATCHDOG_SEC = 240
 def _is_archive(message: Message) -> bool:
     document = message.document
     return bool(document and document.file_name and document.file_name.lower().endswith((".tar.gz", ".tgz")))
+
+
+def _is_signature(message: Message) -> bool:
+    document = message.document
+    return bool(document and document.file_name and document.file_name.lower().endswith((".tar.gz.sig", ".tgz.sig")))
+
+
+def _card(info: selfupdate.ArchiveInfo, settings: Settings) -> tuple[str, object]:
+    """Карточка архива: что внутри, подпись и кнопка «Установить» (если можно)."""
+    sign = signing.status(selfupdate.archive_path(settings.state_dir), info.sha256)
+    blocked = sign == signing.BAD or (settings.update_require_signature and sign != signing.SIGNED)
+    relation = selfupdate.compare_versions(info.version, __version__)
+    label = "✅ Установить" if relation > 0 else "⚠️ Всё равно установить"
+    text = texts.render_archive(info, __version__) + "\n\n" + signing.LABELS[sign]
+    if blocked and sign != signing.BAD:
+        text += "\n⛔ Без подписи автора установка выключена (UPDATE_REQUIRE_SIGNATURE)."
+    markup = kb.update_confirm_kb(info.sig, int(time.time()), can_install=not info.system_changed and not blocked, label=label)
+    return text, markup
 
 
 def _home() -> tuple[str, object]:
@@ -67,6 +86,7 @@ async def on_archive(message: Message, bot: Bot, settings: Settings) -> None:
     target = selfupdate.archive_path(settings.state_dir)
     target.parent.mkdir(parents=True, exist_ok=True)
     note = await message.answer("⏳ Проверяю архив…")
+    signing.sig_path(target).unlink(missing_ok=True)  # подпись от прежнего архива не подходит
     try:
         await bot.download(document, destination=target)
         info = await asyncio.to_thread(selfupdate.inspect_archive, target)
@@ -74,13 +94,56 @@ async def on_archive(message: Message, bot: Bot, settings: Settings) -> None:
         target.unlink(missing_ok=True)
         await note.edit_text(f"❌ {texts.esc(str(exc))}\n\n{texts.NOT_ARCHIVE}")
         return
-    relation = selfupdate.compare_versions(info.version, __version__)
-    can_install = not info.system_changed
-    label = "✅ Установить" if relation > 0 else "⚠️ Всё равно установить"
-    await note.edit_text(
-        texts.render_archive(info, __version__),
-        reply_markup=kb.update_confirm_kb(info.sig, int(time.time()), can_install=can_install, label=label),
-    )
+    text, markup = _card(info, settings)
+    await note.edit_text(text, reply_markup=markup)  # type: ignore[arg-type]
+
+
+@router.message(_is_signature)
+async def on_signature(message: Message, bot: Bot, settings: Settings) -> None:
+    """🔏 Файл подписи к уже присланному архиву."""
+    document = message.document
+    assert document is not None
+    target = selfupdate.archive_path(settings.state_dir)
+    if not target.is_file():
+        await message.answer("Сначала пришлите сам архив homebot-X.Y.Z.tar.gz, потом его .sig.")
+        return
+    if (document.file_size or 0) > 4096:
+        await message.answer("Это не похоже на файл подписи.")
+        return
+    await bot.download(document, destination=signing.sig_path(target))
+    try:
+        info = await asyncio.to_thread(selfupdate.inspect_archive, target)
+    except selfupdate.ArchiveError as exc:
+        await message.answer(f"❌ {texts.esc(str(exc))}")
+        return
+    text, markup = _card(info, settings)
+    await message.answer(text, reply_markup=markup)  # type: ignore[arg-type]
+
+
+@router.callback_query(UpdateCb.filter(F.action == UpdateAction.FETCH))
+async def cb_fetch(call: CallbackQuery, callback_data: UpdateCb, settings: Settings, http: aiohttp.ClientSession) -> None:
+    """🆕 Скачать релиз с GitHub и показать обычную карточку архива."""
+    if not selfupdate.updater_installed():
+        await call.answer("Обновлятор не установлен", show_alert=True)
+        return
+    await call.answer("⬇️ Скачиваю…")
+    try:
+        found = {r.version: r for r in await releases.fetch(http, settings.update_repo)}
+        rel = found.get(callback_data.sig)
+        if rel is None:
+            raise ValueError("релиз не найден")
+        target = selfupdate.archive_path(settings.state_dir)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        signing.sig_path(target).unlink(missing_ok=True)
+        await releases.download(http, rel.url, target)
+        if rel.sig_url:
+            await releases.download(http, rel.sig_url, signing.sig_path(target))
+        info = await asyncio.to_thread(selfupdate.inspect_archive, target)
+    except (aiohttp.ClientError, TimeoutError, ValueError, OSError, selfupdate.ArchiveError) as exc:
+        await edit_or_send(call, f"❌ Не получилось скачать: {texts.esc(str(exc))}")
+        return
+    text, markup = _card(info, settings)
+    await edit_or_send(call, text, markup)  # type: ignore[arg-type]
 
 
 @router.callback_query(UpdateCb.filter(F.action == UpdateAction.NO))
@@ -131,6 +194,10 @@ async def cb_go(call: CallbackQuery, callback_data: UpdateCb, bot: Bot, settings
         return
     if info.system_changed:
         await call.answer("В этой версии изменились системные файлы — нужна обычная установка", show_alert=True)
+        return
+    sign = signing.status(path, info.sha256)
+    if sign == signing.BAD or (settings.update_require_signature and sign != signing.SIGNED):
+        await call.answer("Подпись автора не подтверждена — установка запрещена", show_alert=True)
         return
     if selfupdate.request_pending(settings.state_dir):
         await call.answer("Обновление уже запущено", show_alert=True)

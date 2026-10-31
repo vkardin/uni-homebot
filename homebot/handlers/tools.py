@@ -154,7 +154,7 @@ def file_id_of(message: Message) -> str:
 
 def _is_archive(message: Message) -> bool:
     name = (message.document.file_name or "").lower() if message.document else ""
-    return name.endswith((".tar.gz", ".tgz"))  # это обновление бота — им занимается раздел «Обновление»
+    return name.endswith((".tar.gz", ".tgz", ".tar.gz.sig", ".tgz.sig"))  # это обновление бота — им занимается раздел «Обновление»
 
 
 def _is_settings(message: Message) -> bool:

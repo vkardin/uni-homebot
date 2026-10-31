@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-7.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-7.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-7.0.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-7.1.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -211,6 +211,20 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🆕 Обновления с GitHub и подпись (7.1)
+
+* Раз в сутки бот смотрит релизы `UPDATE_REPO` (по умолчанию `vkardin/uni-homebot`) и один раз сообщает о
+  новой версии. «⬇️ Скачать и проверить» скачивает архив (и `.sig`, если есть) и показывает обычную карточку
+  с «✅ Установить». `UPDATE_CHANNEL=stable` (по умолчанию) — обычные релизы, `beta` — и тестовые, `off` —
+  не проверять. В Docker проверка выключена (обновление там — новым образом).
+* **Подпись**: Ed25519 над sha256 архива, файл `homebot-X.Y.Z.tar.gz.sig`. Ключ автора создаётся
+  `python tools/sign_release.py keygen` (секретный остаётся в `~/.config/uni/release.key`), открытый
+  добавляется строкой в `homebot/release_keys.txt`. Архив присылайте как раньше, а `.sig` — следом отдельным
+  файлом. Подпись не сходится — установка запрещена; `UPDATE_REQUIRE_SIGNATURE=true` запрещает и архивы без подписи.
+* Тег `vX.Y.Z` в GitHub собирает архив, подписывает его (если задан секрет `RELEASE_KEY` — base64 файла ключа)
+  и публикует релиз (`.github/workflows/release.yml`).
+* Новая зависимость `cryptography`: обновлятор ставит её сам. Системные файлы (`deploy/`) не менялись.
 
 ### 🌐 UNI 7.0: языки и открытый проект
 
