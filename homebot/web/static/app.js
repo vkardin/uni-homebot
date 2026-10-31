@@ -39,6 +39,7 @@ const ICONS = {
   save: [["path", { d: "M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" }]],
   gear: [["circle", { cx: 12, cy: 12, r: 3 }], ["path", { d: "M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" }]],
   tools: [["path", { d: "M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z" }]],
+  user: [["circle", { cx: 12, cy: 8, r: 4 }], ["path", { d: "M4 21a8 8 0 0 1 16 0" }]],
   chev: [["path", { d: "M9 6l6 6-6 6" }]],
   back: [["path", { d: "M15 6l-6 6 6 6" }]],
 };
@@ -806,6 +807,26 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// 👪 люди: заявки, роли и права гостей
+async function viewPeople(root) {
+  const box = h("div");
+  const send = (body) => async () => draw(await post("/api/people", body));
+  const draw = (st) => {
+    if (!st.enabled) { box.replaceChildren(card(null, h("div", { class: "dim" }, "Доступ для других выключен: GUESTS_ENABLED=false в .env."))); return; }
+    if (!st.people.length) { box.replaceChildren(card(null, h("div", { class: "empty" }, "Пока никого. Человек пишет боту /start, заявка появится здесь."))); return; }
+    box.replaceChildren(...st.people.map((p) => card(p.icon + " " + p.name,
+      p.status === "pending" ? h("div", { class: "chips" }, h("button", { class: "btn sm primary", onclick: act(send({ id: p.id, op: "approve" }), "Принят") }, "Принять"), h("button", { class: "btn sm bad", onclick: act(send({ id: p.id, op: "block" }), "Заблокирован") }, "Отклонить")) : null,
+      p.status === "approved" ? h("div", { class: "chips" }, ...st.roles.map((r) => h("button", { class: "btn sm" + (p.role === r.id ? " primary" : ""), onclick: act(send({ id: p.id, op: "role", role: r.id }), r.title) }, r.title))) : null,
+      p.status === "approved" ? h("div", { class: "list inner" }, ...st.features.map((f) => setRow(f.title, null, sw(p.perms.includes(f.id), send({ id: p.id, op: "toggle", feature: f.id }))))) : null,
+      h("div", { class: "chips", style: "margin-top:8px" },
+        p.status === "approved" ? h("button", { class: "btn sm bad", onclick: act(send({ id: p.id, op: "block" }), "Заблокирован") }, "Заблокировать") : null,
+        p.status === "blocked" ? h("button", { class: "btn sm", onclick: act(send({ id: p.id, op: "approve" }), "Разблокирован") }, "Разблокировать") : null,
+        h("button", { class: "btn sm", onclick: act(async () => { if (await confirmAsk(`Удалить ${p.name}?`)) await send({ id: p.id, op: "remove" })(); }) }, "Удалить")))));
+  };
+  draw(await get("/api/people"));
+  root.append(box);
+}
+
 // 🌍 каталог сообщества: шаблоны приложений; найденные контейнеры — сверху, добавление на доску одним касанием
 async function viewCommunity(root) {
   const box = h("div");
@@ -837,6 +858,7 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
   community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],

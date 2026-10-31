@@ -909,6 +909,56 @@ async def launcher_status(request: web.Request) -> Any:
     return {key: alive.get(url) for key, url in probes.items()}
 
 
+# ======================================================================= 👪 люди и роли
+def _people_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services.access import FEATURES, ROLES, STATUS_ICON, role_of
+
+    if c.access is None:
+        return {"enabled": False, "people": [], "features": [], "roles": []}
+    people = [
+        {"id": p.id, "name": p.label, "status": p.status, "icon": STATUS_ICON[p.status], "perms": list(p.perms),
+         "role": role_of(p.perms), "seen": p.seen}
+        for p in c.access.people()
+    ]  # fmt: skip
+    return {
+        "enabled": True,
+        "people": people,
+        "features": [{"id": k, "title": v} for k, v in FEATURES.items()],
+        "roles": [{"id": k, "title": t} for k, (t, _) in ROLES.items()],
+    }
+
+
+@routes.get("/api/people")
+async def people_get(request: web.Request) -> Any:
+    return _people_state(_ctx(request))
+
+
+@routes.post("/api/people")
+async def people_post(request: web.Request) -> Any:
+    from homebot.services.access import APPROVED, BLOCKED
+
+    c = _ctx(request)
+    if c.access is None:
+        raise ApiError("доступ для других выключен (GUESTS_ENABLED=false)", 403)
+    body = await _json(request)
+    uid, op = int(body.get("id") or 0), body.get("op")
+    if op == "approve":
+        done = await c.access.set_status(uid, APPROVED)
+    elif op == "block":
+        done = await c.access.set_status(uid, BLOCKED)
+    elif op == "toggle":
+        done = await c.access.toggle(uid, str(body.get("feature", "")))
+    elif op == "role":
+        done = await c.access.set_role(uid, str(body.get("role", "")))
+    elif op == "remove":
+        done = await c.access.remove(uid)
+    else:
+        raise ApiError("неизвестное действие")
+    if not done:
+        raise ApiError("человек не найден", 404)
+    return _people_state(c)
+
+
 # ======================================================================= 🌍 каталог сообщества
 async def _community_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import community, launcher

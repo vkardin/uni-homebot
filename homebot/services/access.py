@@ -26,6 +26,20 @@ FEATURES: dict[str, str] = {
     "download": "⬇️ Скачивание по ссылке",
 }
 DEFAULT_PERMS = ("notes", "reminders", "p2p", "news")
+# 👪 Роли (8.0) — готовые наборы прав; права по-прежнему хранятся списком, поэтому формат state.json не меняется.
+ROLES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "family": ("👪 Семья", ("notes", "reminders", "p2p", "news", "tools", "download")),
+    "friend": ("🤝 Друг", ("notes", "reminders", "news", "tools")),
+    "guest": ("🙋 Гость", ("news",)),
+}
+
+
+def role_of(perms: tuple[str, ...] | list[str]) -> str:
+    """Какой роли соответствуют права; пусто — свой набор."""
+    have = set(perms)
+    return next((key for key, (_, role_perms) in ROLES.items() if set(role_perms) == have), "")
+
+
 LIMITS = {"notes": 100, "reminders": 30}  # на человека
 MAX_GUEST_FEEDS = 8  # своих источников новостей у одного человека (кроме готовых подборок)
 GUEST_COUNTS = (3, 5, 8, 10)  # сколько новостей показывать
@@ -167,6 +181,11 @@ class AccessService:
             return None
         perms = [p for p in person.perms if p != feature] if feature in person.perms else [*person.perms, feature]
         return await self._update(user_id, perms=perms)
+
+    async def set_role(self, user_id: int, role: str) -> Person | None:
+        if role not in ROLES or self.get(user_id) is None:
+            return None
+        return await self._update(user_id, perms=list(ROLES[role][1]))
 
     async def set_prefs(self, user_id: int, **changes: Any) -> Person | None:
         """Меняет личные настройки; None в значении — сбросить поле."""
