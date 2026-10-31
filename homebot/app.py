@@ -46,6 +46,7 @@ COMMANDS = [
     BotCommand(command="tools", description="Конвертер файлов и инструменты"),
     BotCommand(command="server", description="Сервер: состояние, сеть, приложения"),
     BotCommand(command="status", description="Состояние сервера"),
+    BotCommand(command="home", description="Дом: свет, розетки, сцены"),
     BotCommand(command="report", description="Отчёт о сервере: неделя, месяц, год"),
     BotCommand(command="why", description="Спросить о сервере: /why почему тормозит"),
     BotCommand(command="setup", description="Начало работы: что ещё настроить"),
@@ -116,6 +117,22 @@ def set_off_commands(commands: set[str]) -> None:
     _OFF_COMMANDS.update(commands)
 
 
+def _plugin_commands() -> list[BotCommand]:
+    """🧩 Команды загруженных внешних модулей — в конце списка «/»."""
+    from homebot import plugins
+
+    reg = plugins.REGISTRY
+    if reg is None:
+        return []
+    return [
+        BotCommand(command=c, description=(d or p.manifest.name)[:200])
+        for p in reg.plugins.values()
+        if p.loaded
+        for c, d in p.manifest.commands
+        if c in reg.commands
+    ][:30]
+
+
 def visible_commands(commands: list[BotCommand], connected: set[str]) -> list[BotCommand]:
     """Список команд без команд неподключённых плиток и выключенных разделов."""
     hidden = tiles.hidden_commands(connected) | _OFF_COMMANDS
@@ -137,7 +154,9 @@ async def _on_startup(bot: Bot, settings: Settings, tasks: TaskManager, store: S
     kb.set_connected_tiles(sections)
     with suppress(TelegramAPIError):  # у гостей по умолчанию короткий список, у вас в чате — полный
         await bot.set_my_commands(visible_commands(GUEST_COMMANDS, sections))
-        await bot.set_my_commands(visible_commands(COMMANDS, sections), scope=BotCommandScopeChat(chat_id=settings.admin_id))
+        await bot.set_my_commands(
+            visible_commands(COMMANDS, sections) + _plugin_commands(), scope=BotCommandScopeChat(chat_id=settings.admin_id)
+        )
     with suppress(TelegramAPIError):  # описание в пустом чате и в профиле бота
         await bot.set_my_short_description(BOT_SHORT_DESCRIPTION)
         await bot.set_my_description(BOT_DESCRIPTION)

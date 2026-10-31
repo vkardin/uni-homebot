@@ -1166,6 +1166,48 @@ async def community_post(request: web.Request) -> Any:
     return await _community_state(c)
 
 
+# ======================================================================= 🧩 внешние модули (10.0)
+def _plugins_state() -> dict[str, Any]:
+    from homebot import plugins
+
+    reg = plugins.REGISTRY
+    return {
+        "api": plugins.API_VERSION,
+        "dir": str(reg.root) if reg else "",
+        "items": [p.as_json() for p in reg.plugins.values()] if reg else [],
+    }
+
+
+@routes.get("/api/plugins")
+async def plugins_get(request: web.Request) -> Any:
+    return _plugins_state()
+
+
+@routes.post("/api/plugins")
+async def plugins_post(request: web.Request) -> Any:
+    """Включить или выключить модуль. Код модуля загружается при следующем запуске бота (op=restart)."""
+    from homebot import plugins
+
+    c = _ctx(request)
+    body = await _json(request)
+    if body.get("op") == "restart":
+        import os
+        import signal
+
+        asyncio.get_running_loop().call_later(1.0, os.kill, os.getpid(), signal.SIGTERM)
+        return {"ok": True}
+    reg = plugins.REGISTRY
+    plugin = reg.plugins.get(str(body.get("id", ""))) if reg else None
+    if plugin is None:
+        raise ApiError("такого модуля нет", 404)
+    on = bool(body.get("on"))
+    if on and plugin.error and not plugin.enabled:
+        raise ApiError("модуль с ошибкой: " + plugin.error)
+    await plugins.set_enabled(c.store, plugin.manifest.id, on)
+    plugin.enabled = on
+    return {**_plugins_state(), "restart": True}
+
+
 # ======================================================================= 🧭 начало работы
 def _setup_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import setup

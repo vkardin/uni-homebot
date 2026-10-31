@@ -7,6 +7,7 @@ import logging
 import sys
 from contextlib import suppress
 from datetime import datetime
+from typing import Any
 
 import aiohttp
 from aiogram import Bot
@@ -115,6 +116,31 @@ def _machine_translator(settings: Settings, http: aiohttp.ClientSession) -> Libr
         return None
     key = settings.libretranslate_api_key.get_secret_value() if settings.libretranslate_api_key is not None else ""
     return LibreTranslator(http, settings.libretranslate_url, key)
+
+
+def _load_plugins(settings: Settings, store: StateStore, tasks: TaskManager, *, bot: Bot, http: Any, apps: Any) -> None:
+    """🧩 Внешние модули из STATE_DIR/modules: только включённые владельцем; ошибка модуля не мешает запуску."""
+    from homebot import plugins
+    from homebot.app import COMMANDS, GUEST_COMMANDS
+
+    reg = plugins.Registry(settings.state_dir / "modules")
+    plugins.REGISTRY = reg
+    reserved = {c.command for c in (*COMMANDS, *GUEST_COMMANDS)} | {"start", "help", "modules", "app", "cancel"}
+    for plugin in reg.discover(plugins.enabled_ids(store)):
+        if not reg.load(plugin, reserved, http=http, docker=apps.docker):
+            continue
+        for i, (seconds, job) in enumerate(plugin.jobs):
+
+            async def send(text: str) -> None:
+                await bot.send_message(settings.admin_id, text)
+
+            tasks.register(
+                f"mod_{plugin.manifest.id}_{i}",
+                f"🧩 {plugin.manifest.name}",
+                f"Модуль {plugin.manifest.id} {plugin.manifest.version}, раз в {seconds // 60} мин",
+                reg.job_factory(plugin, seconds, job, send),
+                default_enabled=True,
+            )
 
 
 def _register_jobs(
@@ -533,6 +559,8 @@ async def _main() -> int:
 
         for job in modules.off_jobs(modules.off(store)):  # 🧱 задачи выключенных разделов не запускаем
             tasks.unregister(job)
+
+        _load_plugins(settings, store, tasks, bot=bot, http=http, apps=apps)
 
         power_service = PowerService(settings.restartable, power_enabled=settings.power_enabled)
         logs_service = LogsService([*settings.services, "homebot"])

@@ -38,7 +38,7 @@ TILES: tuple[Tile, ...] = (
     Tile("qbit", "qBittorrent", "🧲", ("QBIT_USERNAME", "QBIT_PASSWORD"), ("qbit",), commands=("torrents",)),
     Tile("adguard", "AdGuard", "🛡", ("ADGUARD_USERNAME", "ADGUARD_PASSWORD"), ("adguard",)),
     Tile("jellyfin", "Jellyfin", "📺", ("JELLYFIN_API_KEY",), ("jellyfin",)),
-    Tile("home", "Home Assistant", "🏠", ("HASS_TOKEN",), ("hass",)),
+    Tile("home", "Home Assistant", "🏠", ("HASS_TOKEN",), ("hass",), commands=("home",)),
 )
 BY_ID: dict[str, Tile] = {tile.id: tile for tile in TILES}
 MENU_TILES: tuple[Tile, ...] = tuple(tile for tile in TILES if tile.menu)

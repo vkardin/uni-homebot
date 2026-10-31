@@ -1,0 +1,9 @@
+{
+  "id": "uptime",
+  "name": "Аптайм сайтов",
+  "version": "1.0.0",
+  "api": 1,
+  "description": "Проверяет, открываются ли ваши сайты, и пишет, если какой-то перестал",
+  "permissions": ["network", "files", "notify"],
+  "commands": [{"command": "uptime", "description": "Сайты: /uptime или /uptime add https://…"}]
+}

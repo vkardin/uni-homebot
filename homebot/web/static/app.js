@@ -921,6 +921,22 @@ async function viewPeople(root) {
 }
 
 // 🌍 каталог сообщества: шаблоны приложений; найденные контейнеры — сверху, добавление на доску одним касанием
+// 🧩 10.0: внешние модули (STATE_DIR/modules) — права видны до включения, код грузится после перезапуска
+async function viewModules(root) {
+  const box = h("div");
+  root.append(box);
+  const restart = h("button", { class: "btn primary block", onclick: act(async () => { await post("/api/plugins", { op: "restart" }); }, "Перезапускаю…") }, "Перезапустить бота, чтобы применить");
+  function draw(d) {
+    const items = d.items.map((m) => card(null,
+      row([m.name, " ", h("span", { class: "dim" }, m.version)], m.description || m.commands.map((c) => "/" + c.command).join(" "),
+        sw(m.enabled, async (on) => { if (on && m.permissions.length && !(await confirmAsk("Модуль «" + m.name + "» получит права: " + m.permissions.map((p) => p.text).join(", ") + ". Код модуля работает внутри бота, включайте только то, чему доверяете. Включить?"))) throw new Error("Отменено"); const r = await post("/api/plugins", { id: m.id, on }); draw(r); box.prepend(restart); })),
+      m.permissions.length ? h("div", { class: "dim" }, "Права: " + m.permissions.map((p) => p.text).join(", ")) : null,
+      m.error ? h("div", { class: "bad" }, m.error) : m.enabled && !m.loaded ? h("div", { class: "dim" }, "Включится после перезапуска") : m.loaded ? h("div", { class: "dim" }, "🟢 работает") : null));
+    box.replaceChildren(...(items.length ? items : [card(null, h("div", { class: "dim" }, "Модулей пока нет. Положите папку модуля (module.json и module.py) в " + d.dir + " и откройте этот экран снова. Пример — docs/MODULES.md."))]));
+  }
+  try { draw(await get("/api/plugins")); } catch (e) { box.replaceChildren(failure(e)); }
+}
+
 async function viewCommunity(root) {
   const box = h("div");
   const draw = (st) => box.replaceChildren(
@@ -955,6 +971,7 @@ const SUBS = {
   rules: ["spark", "Сценарии", "Если что-то случилось — сделать само", viewRules],
   servers: ["server", "Другие машины", "Метрики и копии бэкапов через агента UNI", viewServers],
   people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
+  modules: ["tools", "Модули", "Внешние модули: свои команды и задачи", viewModules],
   community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],

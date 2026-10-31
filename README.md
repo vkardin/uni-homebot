@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-9.3.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-10.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-9.3.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-10.0.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,16 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🧩 Внешние модули и платформа (10.0)
+
+Свои команды и фоновые задачи без правки кода UNI: папка с `module.json` и `module.py` в `STATE_DIR/modules/`,
+включение в панели «Ещё → Модули» (права видны до включения), статус — `/modules`. Пример — `extras/modules/uptime`,
+описание API 1.0 — [docs/MODULES.md](docs/MODULES.md). Сломанный модуль не роняет бота.
+
+Всё, что есть в панели, есть и в чате: `/rules` (сценарии), `/servers` (другие машины), `/home` (Home Assistant),
+`/catalog` (каталог сообщества); это проверяет автотест. Обновление с любой 6.x — обычным способом, без миграций.
+Критерии готовности — [docs/READY.md](docs/READY.md).
 
 ### 📈 Отчёты (9.3)
 
