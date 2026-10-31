@@ -156,6 +156,29 @@ async def _show_models(call: CallbackQuery, state: FSMContext, ollama: OllamaSer
     )
 
 
+# ------------------------------------------------------------ вопрос о сервере
+@router.message(Command("why", "ask"))
+async def cmd_why(message: Message, ollama: OllamaService, system, units, apps, tasks) -> None:
+    """🩺 /why почему тормозит? — ответ по свежим фактам с сервера. Модель ничего не выполняет."""
+    from homebot.services import server_help
+
+    question = (message.text or "").partition(" ")[2].strip()
+    if not question:
+        await message.answer(
+            "🩺 Спросите о сервере обычными словами:\n<code>/why почему тормозит?</code>\n<code>/why что съело диск?</code>"
+        )
+        return
+    async with ChatActionSender.typing(bot=message.bot, chat_id=message.chat.id):  # type: ignore[arg-type]
+        try:
+            fact_text = await server_help.facts(system, units, apps, tasks)
+            reply = strip_think(await server_help.answer(ollama, question, fact_text))
+        except OllamaError as exc:
+            await message.answer(render_ollama_error(exc))
+            return
+    for part in split_message(html.escape(reply) or "Модель промолчала."):
+        await message.answer(part)
+
+
 # ---------------------------------------------------------------------- панель
 @router.message(Command("ollama"))
 async def cmd_ollama(message: Message, state: FSMContext, ollama: OllamaService) -> None:

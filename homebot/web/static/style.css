@@ -164,5 +164,7 @@ main > *:nth-child(n+4) { animation-delay: .09s; }
 .app:active { transform: scale(.95); } .app .ai { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-size: 24px;
   background: linear-gradient(135deg, var(--soft), color-mix(in srgb, var(--pink) 14%, transparent)); }
 .app .at { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+.app .ai { position: relative; } .live { position: absolute; right: -3px; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--card); }
+.live.on { background: var(--ok); } .live.off { background: var(--bad); }
 .app.add { background: none; box-shadow: none; border-style: dashed; color: var(--dim); } .app.add .ai { background: none; color: var(--neon); }
 @media (min-width: 560px) { .apps { grid-template-columns: repeat(6, 1fr); } }

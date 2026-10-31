@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 STATE_KEY = "backup"
 DB_NAME = "homebot.db"
 STATE_NAME = "state.json"
+SETTINGS_NAME = "settings.json"
 MAX_EXTRA_FILE = 5 * 1024 * 1024
 MAX_EXTRA_TOTAL = 50 * 1024 * 1024
 _NAME_RE = re.compile(r"^homebot-(\d{8}-\d{6})\.tar\.gz$")
@@ -99,9 +100,9 @@ async def create_backup(
             await db.backup_to(db_copy)
             with tarfile.open(tmp_target, "w:gz") as tar:
                 tar.add(db_copy, arcname=DB_NAME, recursive=False)
-                state_file = state_dir / STATE_NAME
-                if state_file.is_file():
-                    tar.add(state_file, arcname=STATE_NAME, recursive=False)
+                for name in (STATE_NAME, SETTINGS_NAME):  # состояние и ⚙️ настройки из панели
+                    if (state_dir / name).is_file():
+                        tar.add(state_dir / name, arcname=name, recursive=False)
                 _add_extra(tar, extra or [])
         tmp_target.replace(target)
     except (OSError, tarfile.TarError, sqlite3.Error, RuntimeError) as exc:
@@ -149,6 +150,12 @@ async def restore_backup(path: Path, state_dir: Path, db: Database, store: State
                     if not isinstance(parsed, dict):
                         raise BackupError("state.json в копии повреждён")
                     state_data = parsed
+                settings_raw: bytes | None = None
+                if SETTINGS_NAME in tar.getnames():
+                    settings_handle = tar.extractfile(_safe_member(tar, SETTINGS_NAME))
+                    settings_raw = settings_handle.read() if settings_handle else None
+                    if settings_raw is not None and not isinstance(json.loads(settings_raw.decode("utf-8")), dict):
+                        raise BackupError("settings.json в копии повреждён")
         except (tarfile.TarError, OSError, ValueError, EOFError) as exc:
             raise BackupError(f"архив не открывается: {exc}") from exc
         try:
@@ -159,6 +166,11 @@ async def restore_backup(path: Path, state_dir: Path, db: Database, store: State
         if state_data is not None:
             await store.replace_all(state_data)
             done.append("состояние")
+        if settings_raw is not None:
+            from homebot.services import overrides
+
+            overrides.save(state_dir, json.loads(settings_raw.decode("utf-8")))
+            done.append("настройки панели")
     return done
 
 

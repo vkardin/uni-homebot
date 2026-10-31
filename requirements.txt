@@ -10,3 +10,4 @@ pypdf>=4.0
 pillow>=10.3
 pillow-heif>=0.16
 yt-dlp>=2024.8
+cryptography>=41

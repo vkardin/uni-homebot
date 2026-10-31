@@ -57,6 +57,7 @@ class Settings(BaseSettings):
 
     # --- Общее --------------------------------------------------------------
     log_level: str = "INFO"
+    language: str = "ru"  # 🌐 язык интерфейса: ru, en, uk (непереведённое остаётся по-русски)
     # Пусто — часовой пояс сервера (см. system_timezone), а если его не узнать — UTC.
     # pip-пакет `tzdata` из requirements.txt знает и современные имена, и старые алиасы вроде "Europe/Kiev".
     timezone: str = Field(default_factory=system_timezone)
@@ -67,6 +68,13 @@ class Settings(BaseSettings):
     homebot_in_container: bool = False
     # 📦 Каталог: бот может ставить приложения из белого списка (служба ставится update.sh только при true)
     catalog_enabled: bool = False
+    # 🆕 Новые версии с GitHub: stable — обычные релизы, beta — и тестовые, off — не проверять
+    update_channel: str = "stable"
+    update_repo: str = "vkardin/uni-homebot"
+    # 🔏 Ставить из чата только архивы с подписью автора (ключи — homebot/release_keys.txt)
+    update_require_signature: bool = False
+    # 🌍 Каталог сообщества (шаблоны приложений для доски); пусто — только встроенный
+    community_catalog_url: str = "https://raw.githubusercontent.com/vkardin/uni-homebot/main/catalog/apps.json"
 
     # --- Мониторинг и алерты --------------------------------------------------
     # Через запятую. Имена systemd-юнитов: ssh, tailscaled, ollama, docker ...
@@ -152,6 +160,8 @@ class Settings(BaseSettings):
     sonarr_url: str = "http://127.0.0.1:8989"
     sonarr_api_key: SecretStr | None = None
     sonarr_profile: str = ""  # профиль качества для сериалов; пусто — 1080p, если есть
+    hass_url: str = "http://127.0.0.1:8123"  # 🏠 Home Assistant
+    hass_token: SecretStr | None = None  # долгосрочный токен: профиль → Безопасность
     cleanup_min_days: int = Field(3, ge=0, le=365)  # просмотренное моложе N дней в «Чистке диска» не предлагаем
     # Actual Budget — через контейнер-обёртку actual-http-api (у самого Actual HTTP API нет)
     actual_url: str = "http://127.0.0.1:5007"
@@ -240,6 +250,22 @@ class Settings(BaseSettings):
             raise ValueError("WEB_URL должен начинаться с https:// (Telegram открывает Mini App только по HTTPS) или быть пустым")
         return value
 
+    @field_validator("language")
+    @classmethod
+    def _check_language(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in {"ru", "en", "uk"}:
+            raise ValueError("ожидается ru, en или uk")
+        return value
+
+    @field_validator("update_channel")
+    @classmethod
+    def _check_channel(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in {"stable", "beta", "off"}:
+            raise ValueError("ожидается stable, beta или off")
+        return value
+
     @field_validator("log_level")
     @classmethod
     def _check_log_level(cls, value: str) -> str:
@@ -268,6 +294,7 @@ class Settings(BaseSettings):
         "actual_url",
         "changedetection_url",
         "libretranslate_url",
+        "hass_url",
     )
     @classmethod
     def _check_app_url(cls, value: str) -> str:

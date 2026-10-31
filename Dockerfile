@@ -18,6 +18,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 COPY homebot ./homebot
+COPY catalog ./catalog
 COPY pyproject.toml README.md .env.example ./
 
 ENV PYTHONUNBUFFERED=1 \

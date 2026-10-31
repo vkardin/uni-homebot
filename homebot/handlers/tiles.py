@@ -69,10 +69,12 @@ async def _overview(settings: Settings, apps: Apps, off: frozenset[str] = frozen
     return "\n".join(lines), kb.tiles_kb(rows, catalog=settings.catalog_enabled and catalog.available(settings.state_dir))
 
 
-async def _refresh(bot: Bot, settings: Settings, apps: Apps) -> None:
+async def _refresh(bot: Bot, settings: Settings, apps: Apps, store: StateStore | None = None) -> None:
     """Меню и подсказки команд — по новому списку подключённого."""
-    from homebot.app import COMMANDS, GUEST_COMMANDS, visible_commands  # app импортирует роутеры
+    from homebot.app import COMMANDS, GUEST_COMMANDS, sync_modules, visible_commands  # app импортирует роутеры
 
+    if store is not None:
+        sync_modules(store)
     connected = tiles.connected_ids(apps)
     kb.set_connected_tiles(connected)
     with suppress(TelegramAPIError):
@@ -289,8 +291,6 @@ async def _wait_install(bot: Bot, settings: Settings, apps: Apps, http: aiohttp.
 def _modules_view(apps: Apps, store: StateStore) -> tuple[str, InlineKeyboardMarkup]:
     rows = modules.rows(apps, modules.off(store))
     text = "🧱 <b>Модули</b>\nНажмите, чтобы выключить или включить. Настройки при этом не теряются."
-    if not rows:
-        text += "\n\n<i>Пока ничего не подключено.</i>"
     return text, kb.modules_kb(rows)
 
 
@@ -312,6 +312,16 @@ async def cb_toggle(
     http: aiohttp.ClientSession,
     store: StateStore,
 ) -> None:
+    feature = modules.FEATURE_BY_ID.get(callback_data.svc)
+    if feature is not None:
+        disable = feature.id not in modules.off(store)
+        await modules.set_off(store, feature.id, disable)
+        await _refresh(bot, settings, apps, store)
+        jobs = " Фоновые задачи — после перезапуска." if feature.jobs else ""
+        await call.answer(f"{feature.title}: {'выключено' if disable else 'включено'}.{jobs}", show_alert=bool(jobs))
+        text, markup = _modules_view(apps, store)
+        await edit_or_send(call, text, markup)
+        return
     tile = tiles.BY_ID.get(callback_data.svc)
     if tile is None:
         await call.answer()
@@ -324,7 +334,7 @@ async def cb_toggle(
         await modules.set_off(store, tile.id, True)
         modules.apply(apps, {tile.id})
         note = f"{tile.title} выключен; фоновые уведомления остановятся после перезапуска"
-    await _refresh(bot, settings, apps)
+    await _refresh(bot, settings, apps, store)
     await call.answer(note, show_alert=True)
     text, markup = _modules_view(apps, store)
     await edit_or_send(call, text, markup)

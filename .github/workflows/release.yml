@@ -1,0 +1,37 @@
+name: release
+
+# Тег vX.Y.Z → архив homebot-X.Y.Z.tar.gz (+ подпись, если задан секрет RELEASE_KEY) на странице релизов.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt -r requirements-dev.txt && pytest -q
+      - name: Archive
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --prefix=homebot/ -o "homebot-$V.tar.gz" HEAD
+          echo "V=$V" >> "$GITHUB_ENV"
+      - name: Sign
+        env:
+          RELEASE_KEY: ${{ secrets.RELEASE_KEY }}
+        if: env.RELEASE_KEY != ''
+        run: |
+          mkdir -p ~/.config/uni && echo "$RELEASE_KEY" | base64 -d > ~/.config/uni/release.key && chmod 600 ~/.config/uni/release.key
+          python tools/sign_release.py sign "homebot-$V.tar.gz"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""; case "$V" in *-*|*b*|*rc*) PRE="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" homebot-$V.tar.gz* --title "UNI $V" --generate-notes $PRE

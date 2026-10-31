@@ -39,6 +39,7 @@ const ICONS = {
   save: [["path", { d: "M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6" }]],
   gear: [["circle", { cx: 12, cy: 12, r: 3 }], ["path", { d: "M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" }]],
   tools: [["path", { d: "M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z" }]],
+  user: [["circle", { cx: 12, cy: 8, r: 4 }], ["path", { d: "M4 21a8 8 0 0 1 16 0" }]],
   chev: [["path", { d: "M9 6l6 6-6 6" }]],
   back: [["path", { d: "M15 6l-6 6 6 6" }]],
 };
@@ -56,6 +57,24 @@ function s(tag, attrs, ...kids) {
   return el;
 }
 const $ = (id) => document.getElementById(id);
+// 🌐 язык панели (из /api/me): непереведённое остаётся по-русски
+let LANG = "ru";
+const TR = {
+  "Главная": ["Home", "Головна"], "Сервер": ["Server", "Сервер"], "Новости": ["News", "Новини"], "Деньги": ["Money", "Гроші"], "Ещё": ["More", "Ще"],
+  "Настройки": ["Settings", "Налаштування"], "Новости, категории и источники": ["News, categories and sources", "Новини, категорії та джерела"],
+  "Инструменты": ["Tools", "Інструменти"], "Конвертер файлов, сборка PDF, скачивание": ["File converter, PDF merge, downloads", "Конвертер файлів, PDF, завантаження"],
+  "Кино и сериалы": ["Movies and shows", "Кіно та серіали"], "Поиск, загрузки, новинки": ["Search, downloads, new releases", "Пошук, завантаження, новинки"],
+  "Слежка за ценами": ["Price tracking", "Стеження за цінами"], "Цены и изменения на страницах": ["Prices and page changes", "Ціни та зміни на сторінках"],
+  "Напоминания": ["Reminders", "Нагадування"], "Разовые и повторяющиеся": ["One-time and recurring", "Разові та повторювані"],
+  "Заметки": ["Notes", "Нотатки"], "Быстрые записи": ["Quick notes", "Швидкі записи"],
+  "Спросить ИИ": ["Ask the assistant", "Запитати асистента"], "Локальная модель на сервере": ["Local model on the server", "Локальна модель на сервері"],
+  "Бэкап и статистика": ["Backup and stats", "Бекап і статистика"], "Копии данных бота": ["Copies of bot data", "Копії даних бота"],
+  "Всё в порядке": ["All good", "Усе гаразд"], "Приложения": ["Apps", "Застосунки"], "Ссылка": ["Link", "Посилання"],
+  "Начало работы": ["Getting started", "Початок роботи"], "из": ["of", "з"], "Скрыть": ["Hide", "Сховати"],
+  "Доброй ночи": ["Good night", "Доброї ночі"], "Доброе утро": ["Good morning", "Доброго ранку"], "Добрый день": ["Good afternoon", "Доброго дня"], "Добрый вечер": ["Good evening", "Доброго вечора"],
+};
+const T = (s) => (LANG !== "ru" && TR[s] ? TR[s][LANG === "en" ? 0 : 1] : s);
+const LOCALE = () => (LANG === "en" ? "en-GB" : LANG === "uk" ? "uk-UA" : "ru-RU");
 const fmtBytes = (n) => { n = Number(n) || 0; const u = ["Б", "КБ", "МБ", "ГБ", "ТБ"]; let i = 0; while (n >= 1024 && i < 4) { n /= 1024; i++; } return (n >= 100 || i === 0 ? n.toFixed(0) : n.toFixed(1)) + " " + u[i]; };
 const fmtSpeed = (n) => fmtBytes(n) + "/с";
 const fmtDur = (sec) => { sec = Math.floor(sec || 0); const d = Math.floor(sec / 86400), hh = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d} д ${hh} ч` : hh ? `${hh} ч ${m} мин` : `${m} мин`; };
@@ -208,10 +227,35 @@ async function viewServer(root) {
     } catch (e) { histBox.replaceChildren(failure(e)); }
   }
   hist();
+  root.append(reportCard());
   root.append(
     has("docker") ? await dockerCard() : null, await appsCards(),
     fold("Процессы", () => get("/api/top"), (list) => ({ sum: list.length ? list[0].name : "", body: list.map((p) => row(p.name, `PID ${p.pid}`, h("span", { class: "dim" }, fmtBytes(p.rss) + " · " + num(p.mem_percent, 1) + "%"))) })),
     await logsCard());
+}
+
+// 📈 9.3: отчёт за неделю, месяц, год (часовые итоги, сравнение с прошлым периодом)
+function reportCard() {
+  const box = h("div"), names = { week: "Неделя", month: "Месяц", year: "Год" };
+  let period = "week";
+  const chips = () => h("div", { class: "chips" }, Object.keys(names).map((p) => h("button", { class: "chip" + (p === period ? " on" : ""), onclick: () => { period = p; load(); } }, names[p])));
+  const delta = (now, before) => before == null ? "" : Math.abs(now - before) < 1 ? " · как раньше" : ` · ${now > before ? "+" : "−"}${Math.abs(now - before).toFixed(0)} п.п.`;
+  async function load() {
+    box.replaceChildren(card("Отчёт", chips(), loading()));
+    try {
+      const r = (await get("/api/report?period=" + period)).report;
+      if (!r) { box.replaceChildren(card("Отчёт", chips(), h("div", { class: "dim" }, "Истории пока нет: первый час появится через час после запуска."))); return; }
+      box.replaceChildren(card("Отчёт", chips(),
+        r.points.length > 1 ? lineChart([{ name: "CPU %", color: "var(--neon)", points: r.points.map((p) => [p[0], p[1]]) }, { name: "RAM %", color: "var(--pink)", points: r.points.map((p) => [p[0], p[2]]) }], { minY: 0, maxY: 100, fmtY: (v) => Math.round(v) + "%" }) : null,
+        row("CPU", `в среднем ${pct(r.cpu_avg)}${delta(r.cpu_avg, r.prev_cpu_avg)}`, h("span", { class: "dim" }, "пик " + pct(r.cpu_max))),
+        row("Память", `в среднем ${pct(r.ram_avg)}${delta(r.ram_avg, r.prev_ram_avg)}`, h("span", { class: "dim" }, "пик " + pct(r.ram_max))),
+        r.temp_max != null ? row("Температура", "максимум", h("span", { class: "dim" }, Math.round(r.temp_max) + "°")) : null,
+        r.disk_end != null ? row("Диск /", r.disk_start != null ? `было ${pct(r.disk_start)}` : "", h("span", { class: "dim" }, pct(r.disk_end))) : null,
+        r.coverage < 0.9 ? h("div", { class: "dim" }, `Данные есть за ${Math.round(r.coverage * 100)}% периода.`) : null));
+    } catch (e) { box.replaceChildren(failure(e)); }
+  }
+  load();
+  return box;
 }
 
 async function dockerCard() {
@@ -424,7 +468,7 @@ async function viewNews(root) {
   root.append(await section(null, () => get("/api/news"), (items) => items.length ? items.map((n) => h("article", { class: "news" },
     h("div", { class: "meta" }, `${n.feed} · ${fmtDate(n.sent_ts)}`),
     h("div", { class: "head" }, /^https?:\/\//.test(n.link || "") ? h("a", { href: n.link, onclick: (e) => { e.preventDefault(); reader(n.link, n.title); } }, n.title) : n.title),
-    n.text ? h("div", { class: "sum" }, n.text) : null)) : [h("div", { class: "empty" }, "Пока ничего не присылал")]));
+    n.text ? h("div", { class: "sum" }, n.text) : null)) : [h("div", { class: "empty" }, IS_GUEST ? "Пока ничего не присылал" : "Пока ничего не присылал. Выберите подборки или добавьте свои ленты в «Категории и источники» выше, и новости начнут приходить по расписанию.")]));
 }
 
 // 📖 Режим чтения: статья открывается внутри панели (текстом), оригинал — во встроенном браузере Telegram
@@ -448,14 +492,18 @@ function fold(title, loader, render) {
 }
 function chatCard() {
   const history = [], log = h("div", { class: "grid" }), input = h("input", { placeholder: "Спросить локальную модель…", enterkeyhint: "send" });
+  let about = false; // 🩺 «о сервере»: ответ по свежим фактам, без истории
+  const mode = seg([[false, "Обо всём"], [true, "О сервере"]], false, (v) => { about = v; input.placeholder = v ? "Почему тормозит? Что съело диск?" : "Спросить локальную модель…"; });
   const send = act(async () => {
     const t = input.value.trim(); if (!t) return; input.value = "";
-    history.push({ role: "user", content: t }); log.append(h("div", { class: "bubble me" }, t));
+    log.append(h("div", { class: "bubble me" }, t));
     const wait = h("div", { class: "bubble bot dim" }, "думаю… (на процессоре это может занять минуту)"); log.append(wait);
+    if (about) { try { const r = await post("/api/ask-server", { question: t }); wait.className = "bubble bot"; wait.textContent = r.reply; } catch (e) { wait.className = "bubble bot bad"; wait.textContent = "⚠️ " + e.message; } return; }
+    history.push({ role: "user", content: t });
     try { const r = await post("/api/chat", { messages: history }); history.push({ role: "assistant", content: r.reply }); wait.className = "bubble bot"; wait.textContent = r.reply; } catch (e) { wait.className = "bubble bot bad"; wait.textContent = "⚠️ " + e.message; history.pop(); }
   });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.nextSibling.click(); });
-  return card("Спросить ИИ", log, h("div", { class: "inline" }, input, h("button", { class: "btn", onclick: send, "aria-label": "Отправить" }, "→")));
+  return card("Спросить ИИ", mode, log, h("div", { class: "inline" }, input, h("button", { class: "btn", onclick: send, "aria-label": "Отправить" }, "→")));
 }
 async function remindersCard() {
   const box = card("Напоминания", loading()), text = h("input", { placeholder: "завтра 9:00 оплатить · каждый пн 9:00 планёрка" });
@@ -481,7 +529,7 @@ async function notesCard() {
 }
 
 // ---------------------------------------------------------------- 🏠 ГЛАВНАЯ
-const greet = () => { const hr = new Date().getHours(); return hr < 5 ? "Доброй ночи" : hr < 12 ? "Доброе утро" : hr < 18 ? "Добрый день" : "Добрый вечер"; };
+const greet = () => { const hr = new Date().getHours(); return T(hr < 5 ? "Доброй ночи" : hr < 12 ? "Доброе утро" : hr < 18 ? "Добрый день" : "Добрый вечер"); };
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return n + " " + (m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); };
 const group = (title, ...rows) => h("section", { class: "grp" }, title ? h("h4", {}, title) : null, h("div", { class: "list" }, ...rows));
 const li = (main, sub, right, go) => h(go ? "button" : "div", { class: "li" + (go ? " tap" : ""), onclick: go || null }, h("div", { class: "grow" }, h("div", { class: "t" }, main), sub ? h("div", { class: "s" }, sub) : null), right || null, go ? icon("chev") : null);
@@ -504,20 +552,50 @@ function quick(kind) {
 // 🚀 доска приложений: веб-интерфейсы подключённого и свои ссылки (долгое нажатие на ссылку — удалить)
 async function launcherBoard() {
   const box = h("section", { class: "board" });
+  let alive = {};
+  const dot = (key) => (key in alive && alive[key] != null ? h("span", { class: "live " + (alive[key] ? "on" : "off"), title: alive[key] ? "онлайн" : "не отвечает" }) : null);
   const draw = (st) => {
-    const app = (x, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon), h("span", { class: "at" }, x.title));
-    const link = (x) => { const b = app(x, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(async () => { if (await confirmAsk(`Убрать «${x.title}»?`)) draw(await post("/api/launcher", { op: "remove", url: x.url })); }, 650); });
+    const app = (x, key, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon, dot(key)), h("span", { class: "at" }, x.title));
+    const link = (x) => { const b = app(x, x.url, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(() => linkMenu(x, st, draw), 650); });
       ["pointerup", "pointerleave"].forEach((e) => b.addEventListener(e, () => clearTimeout(t))); return b; };
-    const add = h("button", { class: "app add", onclick: () => addLink(draw) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, "Ссылка"));
-    box.replaceChildren(h("h4", {}, "Приложения"), h("div", { class: "apps" }, ...st.apps.map((x) => app(x)), ...st.links.map(link), add));
+    const add = h("button", { class: "app add", onclick: () => addLink(draw, st) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, T("Ссылка")));
+    const groups = {};
+    st.links.forEach((x) => (groups[x.group || ""] = groups[x.group || ""] || []).push(x));
+    const named = Object.keys(groups).filter((g) => g);
+    box.replaceChildren(h("h4", {}, T("Приложения")), h("div", { class: "apps" }, ...st.apps.map((x) => app(x, x.id)), ...(groups[""] || []).map(link), add),
+      ...named.flatMap((g) => [h("h4", { style: "margin-top:14px" }, g), h("div", { class: "apps" }, ...groups[g].map(link))]));
   };
-  draw(await get("/api/launcher").catch(() => ({ apps: [], links: [] })));
+  const st = await get("/api/launcher").catch(() => ({ apps: [], links: [] }));
+  draw(st);
+  if (st.apps.length || st.links.length) get("/api/launcher/status").then((a) => { alive = a || {}; draw(st); }).catch(() => {});
   return box;
 }
-function addLink(draw) {
+// долгое нажатие на свою ссылку: порядок, группа, удалить
+function linkMenu(x, st, draw) {
+  const send = (body) => act(async () => { const r = await post("/api/launcher", { url: x.url, ...body }); Object.assign(st, r); draw(st); closeSheet(); });
+  const groupIn = h("input", { value: x.group || "", placeholder: "Группа, например Дом", maxlength: "24" });
+  sheet(h("div", { class: "sheet-title" }, x.icon + " " + x.title), h("div", { class: "dim small" }, x.url),
+    h("div", { class: "chips" }, h("button", { class: "btn sm", onclick: send({ op: "move", step: -1 }) }, "◀ Левее"), h("button", { class: "btn sm", onclick: send({ op: "move", step: 1 }) }, "Правее ▶")),
+    field("Группа", h("div", { class: "inline" }, groupIn, h("button", { class: "btn", onclick: () => send({ op: "group", group: groupIn.value })() }, "OK")), "Пусто — общая сетка."),
+    h("button", { class: "btn block bad", onclick: act(async () => { if (await confirmAsk(`Убрать «${x.title}»?`)) { Object.assign(st, await post("/api/launcher", { op: "remove", url: x.url })); draw(st); closeSheet(); } }) }, "Убрать"));
+}
+function addLink(draw, st) {
   const title = h("input", { placeholder: "Название", maxlength: "32" }), url = h("input", { placeholder: "https://…", inputmode: "url" }), ic = h("input", { placeholder: "Значок, например 📷", maxlength: "4" });
-  sheet(h("div", { class: "sheet-title" }, "Новая ссылка"), title, url, ic,
-    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/launcher", { op: "add", title: title.value, url: url.value, icon: ic.value })); $("sheet").hidden = true; }, "Добавлено") }, "Добавить"));
+  const grp = h("input", { placeholder: "Группа (необязательно)", maxlength: "24" });
+  sheet(h("div", { class: "sheet-title" }, "Новая ссылка"), title, url, ic, grp,
+    h("button", { class: "btn primary block", onclick: act(async () => { Object.assign(st, await post("/api/launcher", { op: "add", title: title.value, url: url.value, icon: ic.value, group: grp.value })); draw(st); $("sheet").hidden = true; }, "Добавлено") }, "Добавить"));
+}
+
+// 🧭 начало работы: что ещё не настроено; пропадает, когда всё готово или скрыто
+async function setupCard() {
+  const st = await get("/api/setup").catch(() => null);
+  if (!st || st.hidden || st.done === st.total) return null;
+  const box = h("div");
+  const open = (x) => (x.panel ? show(x.panel) : sheet(h("div", { class: "sheet-title" }, x.title), h("div", { class: "dim" }, x.hint), h("button", { class: "btn block", onclick: closeSheet }, "Понятно")));
+  const rows = st.steps.map((x) => li((x.done ? "✅ " : "▫️ ") + x.title, x.done ? null : x.hint, null, x.done ? null : () => open(x)));
+  const hide = h("button", { class: "btn sm", style: "margin-top:8px", onclick: act(async () => { await post("/api/setup", { hidden: true }); box.remove(); }, "Скрыто. Вернуть: /setup в чате") }, T("Скрыть"));
+  box.append(group(`${T("Начало работы")}: ${st.done} ${T("из")} ${st.total}`, ...rows), hide);
+  return box;
 }
 
 async function viewHome(root) {
@@ -534,21 +612,23 @@ async function viewHome(root) {
   const bits = [];
   if (d.reminders.length) bits.push(`Ближайшее напоминание: ${d.reminders[0].text}.`);
   root.append(h("header", { class: "hero" },
-    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })),
-    h("h1", { class: problems.length ? "warn" : "" }, problems.length ? problems[0] : "Всё в порядке"),
+    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString(LOCALE(), { weekday: "long", day: "numeric", month: "long" })),
+    h("h1", { class: problems.length ? "warn" : "" }, problems.length ? problems[0] : T("Всё в порядке")),
     bits.length ? h("p", {}, bits.join(" ")) : null));
   if (sv) root.append(h("button", { class: "card tiles mini", onclick: () => show("server"), "aria-label": "Открыть «Сервер»" },
     tile("CPU", sv.cpu, pct(sv.cpu)), tile("Память", sv.ram, pct(sv.ram)), tile("Диск", sv.disk, pct(sv.disk)),
     sv.temp != null ? tile("Темп.", sv.temp, Math.round(sv.temp) + "°", `var(--${sev(sv.temp, 70, 85)})`) : tile("Службы", sv.failed.length ? 100 : 0, sv.failed.length ? "сбой " + sv.failed.length : "ок")));
+  const guide = await setupCard();
+  if (guide) root.append(guide);
   root.append(await launcherBoard());
-  const pills = [has("finance") ? ["spend", "wallet", "Трата"] : null, ["note", "notes", "Заметка"], ["remind", "bell", "Напоминание"], has("sites") ? ["link", "link", "Слежка"] : null].filter(Boolean);
+  const pills = [has("finance") ? ["spend", "wallet", "Трата"] : null, subOn("notes") ? ["note", "notes", "Заметка"] : null, subOn("reminders") ? ["remind", "bell", "Напоминание"] : null, has("sites") ? ["link", "link", "Слежка"] : null].filter(Boolean);
   root.append(h("div", { class: "quick" }, ...pills.map(([k, ic, t]) => h("button", { class: "pill", onclick: () => quick(k) }, icon(ic), t))));
   const r = d.rate && !d.rate.error ? d.rate : null;
   if (r) root.append(group(`${r.asset} → ${r.fiat}`, h("button", { class: "li tap rate", onclick: () => show("money") },
     h("div", { class: "grow" }, h("div", { class: "big" }, num(r.best, 2) + " " + fiatSign(r.fiat)), h("div", { class: "s" }, "типичная " + num(r.typical, 2) + " " + fiatSign(r.fiat))),
     r.points.length > 2 ? spark(r.points, "var(--neon)") : null, icon("chev"))));
-  root.append(group("Скоро", ...(d.reminders.length ? d.reminders.map((x) => li(x.text, fmtDate(x.due_ts) + (x.rule_text ? ", " + x.rule_text : ""), null, () => show("more/reminders"))) : [li("Напоминаний нет", "Добавьте первое кнопкой выше", null, () => quick("remind"))])));
-  if (d.news.length) root.append(group("Новости", ...d.news.map((n) => li(n.title, `${n.feed}, ${fmtDate(n.sent_ts)}`, null, () => show("news"))), li("Все новости", null, null, () => show("news"))));
+  if (subOn("reminders")) root.append(group("Скоро", ...(d.reminders.length ? d.reminders.map((x) => li(x.text, fmtDate(x.due_ts) + (x.rule_text ? ", " + x.rule_text : ""), null, () => show("more/reminders"))) : [li("Напоминаний нет", "Добавьте первое кнопкой выше", null, () => quick("remind"))])));
+  if (d.news.length && !OFF.includes("news")) root.append(group("Новости", ...d.news.map((n) => li(n.title, `${n.feed}, ${fmtDate(n.sent_ts)}`, null, () => show("news"))), li("Все новости", null, null, () => show("news"))));
   const m = d.money && !d.money.error ? d.money : null;
   if (m) root.append(group("Деньги", li("Потрачено в этом месяце", null, h("b", {}, cents(m.spent, m.currency)), () => show("money"))));
   const st = d.sites && !d.sites.error ? d.sites : null;
@@ -622,10 +702,37 @@ async function viewSettings(root) {
       field("Сколько новостей за раз", seg(st.choices.count.map((n) => [n, String(n)]), p.count, save("count"))),
       field("Формат", seg([["day", "Одно сообщение в день"], ["new", "Каждый раз новое"]], p.mode, save("mode")))),
     sourcesEditor("/api/settings/news", st),
+    await generalCard(),
     await modulesCard(),
     await repairCard(),
     card("О боте", row("Версия", null, h("b", {}, (await get("/api/me")).version)), h("div", { class: "dim small" }, "Доступ для других людей — в чате: Настройки → Доступ.")));
   root.append(box);
+}
+
+// ⚙️ общие настройки: часовой пояс, валюта, погода, пороги алертов, бэкап; .env главнее
+async function generalCard() {
+  const box = h("div");
+  const draw = (st) => {
+    const groups = {};
+    st.items.forEach((x) => (groups[x.group] = groups[x.group] || []).push(x));
+    const shown = (x) => (x.value == null || x.value === "" ? "не задано" : String(x.value));
+    const rowFor = (x) => x.source === "env"
+      ? li(x.title, "Задано на сервере в .env", h("span", { class: "dim" }, shown(x)))
+      : li(x.title, x.source === "panel" ? "Изменено в панели" : x.hint || null, h("b", {}, shown(x)), () => edit(x));
+    const edit = (x) => {
+      const input = h("input", { value: x.value == null ? "" : String(x.value), inputmode: x.kind === "text" ? "text" : "decimal", autocomplete: "off" });
+      const send = (op) => act(async () => { draw(await post("/api/settings/general", { op, name: x.name, value: input.value })); closeSheet(); }, "Сохранено");
+      sheet(h("div", { class: "sheet-title" }, x.title), x.hint ? h("div", { class: "dim small" }, x.hint) : null, input,
+        h("button", { class: "btn primary block", onclick: send("set") }, "Сохранить"),
+        x.source === "panel" ? h("button", { class: "btn block", onclick: send("reset") }, "Вернуть по умолчанию") : null);
+      setTimeout(() => input.focus(), 60);
+    };
+    const restart = st.pending ? h("div", { class: "card note" }, h("span", {}, "Изменения применятся после перезапуска бота. "),
+      h("button", { class: "btn sm primary", onclick: act(async () => { await post("/api/settings/general", { op: "restart" }); box.replaceChildren(card(null, h("div", { class: "dim" }, "Перезапускаюсь… Обновите панель через полминуты."))); }, "Перезапуск") }, "Перезапустить")) : null;
+    box.replaceChildren(...[restart, ...Object.entries(groups).map(([g, items]) => group(g, ...items.map(rowFor)))].filter(Boolean));
+  };
+  draw(await get("/api/settings/general"));
+  return box;
 }
 
 // 🧱 модули: выключить плитку, не теряя настроек; 🔧 перезапуск упавших фоновых задач
@@ -633,7 +740,7 @@ async function modulesCard() {
   const st = await get("/api/modules"), box = h("div");
   const draw = (s) => {
     const rows = s.items.length
-      ? s.items.map((m) => setRow(m.title, m.on ? "Работает" : "Выключен, настройки сохранены", sw(m.on, async (v) => draw(await post("/api/modules", { id: m.id, on: v })))))
+      ? s.items.map((m) => setRow(m.title, m.on ? (m.kind === "section" ? "Раздел включён" : "Работает") : "Выключен, настройки сохранены", sw(m.on, async (v) => { const r = await post("/api/modules", { id: m.id, on: v }); OFF = r.hidden || []; draw(r); })))
       : [h("div", { class: "empty" }, "Пока ничего не подключено. Подключение — в чате: ⚙️ → 🧩 Приложения.")];
     const fix = s.broken.length
       ? [h("div", { class: "dim small", style: "margin-top:12px" }, "Остановлены после падений: " + s.broken.map((b) => b.title).join(", ")),
@@ -688,7 +795,7 @@ async function viewGuestHome(root) {
   if (val(rem)) bits.push(val(rem).length ? `Ближайшее напоминание: ${val(rem)[0].text}.` : "Напоминаний нет.");
   if (val(notes)) bits.push(`Заметок: ${val(notes).length}.`);
   root.append(h("header", { class: "hero" },
-    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })),
+    h("div", { class: "when" }, greet() + ", " + new Date().toLocaleDateString(LOCALE(), { weekday: "long", day: "numeric", month: "long" })),
     h("h1", {}, me.name ? "Привет, " + me.name : "Привет"),
     bits.length ? h("p", {}, bits.join(" ")) : null));
   const pills = [f.has("notes") ? ["note", "notes", "Заметка"] : null, f.has("reminders") ? ["remind", "bell", "Напоминание"] : null].filter(Boolean);
@@ -729,6 +836,122 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// 🏠 Home Assistant: свет, розетки и сцены — касанием, датчики — значением
+async function viewHome2(root) {
+  const box = h("div");
+  const names = { light: "Свет", switch: "Розетки и выключатели", input_boolean: "Переключатели", fan: "Вентиляторы", scene: "Сцены", script: "Скрипты", climate: "Климат", cover: "Шторы и ворота", lock: "Замки", sensor: "Датчики", binary_sensor: "Датчики" };
+  const draw = (items) => {
+    const groups = {};
+    items.forEach((e) => (groups[names[e.domain] || e.domain] = groups[names[e.domain] || e.domain] || []).push(e));
+    box.replaceChildren(...Object.entries(groups).map(([g, list]) => group(g, ...list.map((e) =>
+      e.can === "toggle" ? setRow(e.name, null, sw(e.on, async () => { const r = await post("/api/hass", { id: e.id }); e.state = r.state; e.on = r.state === "on"; }))
+      : e.can === "run" ? li(e.name, null, h("button", { class: "btn sm", onclick: act(() => post("/api/hass", { id: e.id }), "Запущено") }, "▶"))
+      : li(e.name, null, h("b", {}, e.state + (e.unit ? " " + e.unit : "")))))));
+    if (!items.length) box.replaceChildren(card(null, h("div", { class: "empty" }, "Home Assistant не вернул устройств.")));
+  };
+  draw((await get("/api/hass")).items);
+  root.append(box);
+}
+
+// ⚡ сценарии «если, то»
+async function viewRules(root) {
+  const box = h("div");
+  const draw = (st) => box.replaceChildren(
+    st.items.length ? group(null, ...st.items.map((r) => setRow(r.text, `не чаще раза в ${r.cooldown} мин`, h("div", { class: "inline" },
+      sw(r.on, async () => draw(await post("/api/rules", { op: "toggle", id: r.id }))),
+      h("button", { class: "btn sm bad", onclick: act(async () => draw(await post("/api/rules", { op: "remove", id: r.id })), "Удалено") }, "✕"))))) : card(null, h("div", { class: "empty" }, "Сценариев пока нет. Например: «Если диск выше 90 → написать мне» или «Если контейнер jellyfin не работает → перезапустить его».")),
+    h("button", { class: "btn primary block", onclick: () => addRule(st, draw) }, "＋ Новый сценарий"));
+  draw(await get("/api/rules"));
+  root.append(box);
+}
+function addRule(st, draw) {
+  const sel = (obj) => h("select", {}, ...Object.entries(obj).map(([k, v]) => h("option", { value: k }, v)));
+  const when = sel(st.when), then = sel(st.then);
+  const value = h("input", { placeholder: "Порог, например 90", inputmode: "decimal" }), target = h("input", { placeholder: "Имя службы или контейнера" });
+  const thenTarget = h("input", { placeholder: "Что перезапустить (пусто — то же)" }), cooldown = h("input", { value: "30", inputmode: "numeric" });
+  const sync = () => { const num = st.numeric.includes(when.value); value.hidden = !num; target.hidden = num; thenTarget.hidden = then.value === "notify"; };
+  when.addEventListener("change", sync); then.addEventListener("change", sync); sync();
+  sheet(h("div", { class: "sheet-title" }, "Новый сценарий"), field("Если", when), value, target, field("То", then), thenTarget,
+    st.restartable.length ? h("div", { class: "dim small" }, "Службы, которые можно перезапускать: " + st.restartable.join(", ")) : null,
+    field("Не чаще раза в, мин", cooldown),
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/rules", { op: "add", when: when.value, value: value.value, target: target.value, then: then.value, then_target: thenTarget.value, cooldown: Number(cooldown.value) || 30 })); closeSheet(); }, "Сохранено") }, "Сохранить"));
+}
+
+// 🛰 другие машины: метрики агентов и копии бэкапов
+async function viewServers(root) {
+  const box = h("div");
+  const draw = (st) => {
+    const cards = st.items.map((a) => card((a.ok ? "🟢 " : "🔴 ") + a.name,
+      a.ok ? h("div", { class: "tiles mini" }, tile("CPU", a.m.cpu, pct(a.m.cpu)), tile("Память", a.m.ram, pct(a.m.ram)), tile("Диск", a.m.disk, pct(a.m.disk)),
+        a.m.temp != null ? tile("Темп.", a.m.temp, Math.round(a.m.temp) + "°", `var(--${sev(a.m.temp, 70, 85)})`) : tile("Работает", 0, fmtDur(a.m.uptime)))
+        : h("div", { class: "bad small" }, a.error),
+      h("div", { class: "list inner" }, setRow("Хранить копии бэкапов", st.pushed[a.name] ? "Последняя: " + st.pushed[a.name] : "Свежий бэкап отправляется сюда сам", sw(a.backups, async (v) => draw(await post("/api/servers", { op: "backups", name: a.name, on: v }))))),
+      h("button", { class: "btn sm bad", style: "margin-top:8px", onclick: act(async () => { if (await confirmAsk(`Убрать ${a.name}?`)) draw(await post("/api/servers", { op: "remove", name: a.name })); }) }, "Убрать")));
+    box.replaceChildren(...cards, st.items.length ? null : card(null, h("div", { class: "empty" }, "Других машин пока нет.")),
+      h("button", { class: "btn primary block", onclick: () => addServer(draw) }, "＋ Добавить машину"));
+  };
+  draw(await get("/api/servers"));
+  root.append(box);
+}
+function addServer(draw) {
+  const name = h("input", { placeholder: "Имя, например NAS", maxlength: "32" }), url = h("input", { placeholder: "http://nas:8099", inputmode: "url" }), token = h("input", { placeholder: "Токен агента", autocomplete: "off" });
+  sheet(h("div", { class: "sheet-title" }, "Новая машина"),
+    h("div", { class: "dim small" }, "На той машине: распакуйте архив UNI и запустите агента (README → «Другие машины»)."), name, url, token,
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/servers", { op: "add", name: name.value, url: url.value, token: token.value })); closeSheet(); }, "Подключено") }, "Проверить и добавить"));
+}
+
+// 👪 люди: заявки, роли и права гостей
+async function viewPeople(root) {
+  const box = h("div");
+  const send = (body) => async () => draw(await post("/api/people", body));
+  const draw = (st) => {
+    if (!st.enabled) { box.replaceChildren(card(null, h("div", { class: "dim" }, "Доступ для других выключен: GUESTS_ENABLED=false в .env."))); return; }
+    if (!st.people.length) { box.replaceChildren(card(null, h("div", { class: "empty" }, "Пока никого. Человек пишет боту /start, заявка появится здесь."))); return; }
+    box.replaceChildren(...st.people.map((p) => card(p.icon + " " + p.name,
+      p.status === "pending" ? h("div", { class: "chips" }, h("button", { class: "btn sm primary", onclick: act(send({ id: p.id, op: "approve" }), "Принят") }, "Принять"), h("button", { class: "btn sm bad", onclick: act(send({ id: p.id, op: "block" }), "Заблокирован") }, "Отклонить")) : null,
+      p.status === "approved" ? h("div", { class: "chips" }, ...st.roles.map((r) => h("button", { class: "btn sm" + (p.role === r.id ? " primary" : ""), onclick: act(send({ id: p.id, op: "role", role: r.id }), r.title) }, r.title))) : null,
+      p.status === "approved" ? h("div", { class: "list inner" }, ...st.features.map((f) => setRow(f.title, null, sw(p.perms.includes(f.id), send({ id: p.id, op: "toggle", feature: f.id }))))) : null,
+      h("div", { class: "chips", style: "margin-top:8px" },
+        p.status === "approved" ? h("button", { class: "btn sm bad", onclick: act(send({ id: p.id, op: "block" }), "Заблокирован") }, "Заблокировать") : null,
+        p.status === "blocked" ? h("button", { class: "btn sm", onclick: act(send({ id: p.id, op: "approve" }), "Разблокирован") }, "Разблокировать") : null,
+        h("button", { class: "btn sm", onclick: act(async () => { if (await confirmAsk(`Удалить ${p.name}?`)) await send({ id: p.id, op: "remove" })(); }) }, "Удалить")))));
+  };
+  draw(await get("/api/people"));
+  root.append(box);
+}
+
+// 🌍 каталог сообщества: шаблоны приложений; найденные контейнеры — сверху, добавление на доску одним касанием
+// 🧩 10.0: внешние модули (STATE_DIR/modules) — права видны до включения, код грузится после перезапуска
+async function viewModules(root) {
+  const box = h("div");
+  root.append(box);
+  const restart = h("button", { class: "btn primary block", onclick: act(async () => { await post("/api/plugins", { op: "restart" }); }, "Перезапускаю…") }, "Перезапустить бота, чтобы применить");
+  function draw(d) {
+    const items = d.items.map((m) => card(null,
+      row([m.name, " ", h("span", { class: "dim" }, m.version)], m.description || m.commands.map((c) => "/" + c.command).join(" "),
+        sw(m.enabled, async (on) => { if (on && m.permissions.length && !(await confirmAsk("Модуль «" + m.name + "» получит права: " + m.permissions.map((p) => p.text).join(", ") + ". Код модуля работает внутри бота, включайте только то, чему доверяете. Включить?"))) throw new Error("Отменено"); const r = await post("/api/plugins", { id: m.id, on }); draw(r); box.prepend(restart); })),
+      m.permissions.length ? h("div", { class: "dim" }, "Права: " + m.permissions.map((p) => p.text).join(", ")) : null,
+      m.error ? h("div", { class: "bad" }, m.error) : m.enabled && !m.loaded ? h("div", { class: "dim" }, "Включится после перезапуска") : m.loaded ? h("div", { class: "dim" }, "🟢 работает") : null));
+    box.replaceChildren(...(items.length ? items : [card(null, h("div", { class: "dim" }, "Модулей пока нет. Положите папку модуля (module.json и module.py) в " + d.dir + " и откройте этот экран снова. Пример — docs/MODULES.md."))]));
+  }
+  try { draw(await get("/api/plugins")); } catch (e) { box.replaceChildren(failure(e)); }
+}
+
+async function viewCommunity(root) {
+  const box = h("div");
+  const draw = (st) => box.replaceChildren(
+    h("div", { class: "dim small", style: "margin:0 4px 10px" }, "Найденные на сервере приложения — сверху. Нет нужного? Шаблоны присылают в catalog/apps.json на GitHub."),
+    group(null, ...st.items.map((x) => li(x.icon + "  " + x.title, (x.found ? "🟢 найдено · " : "") + x.about, x.added ? h("span", { class: "dim" }, "на доске") : null,
+      x.added ? null : () => addFrom(x, draw)))));
+  draw(await get("/api/community"));
+  root.append(box);
+}
+function addFrom(x, draw) {
+  const url = h("input", { value: x.url || "", placeholder: "http://адрес:порт", inputmode: "url" });
+  sheet(h("div", { class: "sheet-title" }, x.icon + " " + x.title), h("div", { class: "dim small" }, x.found ? "Нашёл контейнер, адрес подставлен." : "Контейнер не найден: впишите адрес сами."), url,
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/community", { id: x.id, url: url.value })); closeSheet(); }, "На доске") }, "Добавить на доску"));
+}
+
 async function viewTools(root) {
   const d = await get("/api/tools");
   root.append(card("Как пользоваться",
@@ -744,21 +967,30 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  house: ["home", "Дом", "Home Assistant: свет, розетки, сцены, датчики", viewHome2],
+  rules: ["spark", "Сценарии", "Если что-то случилось — сделать само", viewRules],
+  servers: ["server", "Другие машины", "Метрики и копии бэкапов через агента UNI", viewServers],
+  people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
+  modules: ["tools", "Модули", "Внешние модули: свои команды и задачи", viewModules],
+  community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
   ai: ["spark", "Спросить ИИ", "Локальная модель на сервере", viewAI], backup: ["save", "Бэкап и статистика", "Копии данных бота", viewBackupPage],
 };
-const SUB_TILE = { movies: "movies", sites: "sites" };
-const subOn = (k) => !SUB_TILE[k] || has(SUB_TILE[k]);
+const SUB_TILE = { movies: "movies", sites: "sites", house: "home" };
+let OFF = []; // 🧱 выключенные разделы (news, ai, tools…)
+const subOn = (k) => !OFF.includes(k) && (!SUB_TILE[k] || has(SUB_TILE[k]));
 function connectSheet(t) {
-  sheet(h("div", { class: "sheet-title" }, t.title), h("div", { class: "dim" }, "Чтобы подключить, добавьте на сервере в .env:"),
+  sheet(h("div", { class: "sheet-title" }, t.icon + " " + t.title),
+    h("div", {}, "Проще всего из чата: напишите боту /connect. Я сам найду контейнер, спрошу адрес и ключ и проверю связь."),
+    h("div", { class: "dim small" }, "Нет приложения? В чате: 🧩 Приложения → Каталог поставит его из бота."),
+    h("div", { class: "dim small", style: "margin-top:10px" }, "Или вручную на сервере в .env, потом перезапуск бота:"),
     h("pre", { class: "log" }, t.needs.map((k) => k + "=…").join("\n")),
-    h("div", { class: "dim small" }, "Потом перезапустите бота. Проверить подключение можно командой /doctor в чате."),
     h("button", { class: "btn block", onclick: closeSheet }, "Понятно"));
 }
 async function viewMore(root) {
   const off = (TILES || []).filter((t) => !t.connected);
   root.append(h("div", { class: "list launch" }, ...Object.entries(SUBS).filter(([k]) => subOn(k)).map(([k, [ic, title, sub]]) => h("button", { class: "li tap", onclick: () => show("more/" + k) },
-    h("span", { class: "badge-ic" }, icon(ic)), h("div", { class: "grow" }, h("div", { class: "t" }, title), h("div", { class: "s" }, sub)), icon("chev")))));
+    h("span", { class: "badge-ic" }, icon(ic)), h("div", { class: "grow" }, h("div", { class: "t" }, T(title)), h("div", { class: "s" }, T(sub))), icon("chev")))));
   if (off.length) root.append(group("Можно подключить", ...off.map((t) => li(t.icon + "  " + t.title, "Не подключено", null, () => connectSheet(t)))));
 }
 
@@ -774,9 +1006,9 @@ async function show(name) {
   const tab = TABS.find((t) => t[0] === tabName) || TABS[0];
   const subs = IS_GUEST ? GUEST_SUBS : SUBS, parent = IS_GUEST ? "home" : "more";
   const sub = tab[0] === parent && subs[subName] && (IS_GUEST || subOn(subName)) ? subs[subName] : null;
-  current = tab[0]; currentSub = sub ? subName : ""; clearTimers(); closeSheet(); $("title").textContent = sub ? sub[1] : tab[2];
+  current = tab[0]; currentSub = sub ? subName : ""; clearTimers(); closeSheet(); $("title").textContent = T(sub ? sub[1] : tab[2]);
   history.replaceState(null, "", "#" + current + (currentSub ? "/" + currentSub : ""));
-  $("tabs").replaceChildren(...TABS.map((t) => h("button", { class: "tab" + (t[0] === current ? " on" : ""), onclick: () => show(t[0]) }, icon(t[1]), t[2])));
+  $("tabs").replaceChildren(...TABS.map((t) => h("button", { class: "tab" + (t[0] === current ? " on" : ""), onclick: () => show(t[0]) }, icon(t[1]), T(t[2]))));
   try { if (tg && tg.BackButton) { if (sub) tg.BackButton.show(); else tg.BackButton.hide(); } } catch (e) {}
   const root = $("view"); root.replaceChildren(loading());
   const mine = current + "/" + currentSub; const holder = h("div", { class: "grid" });
@@ -812,7 +1044,8 @@ if (!tg || !tg.initData) {
       $("host").textContent = me.name || "гость"; $("tabs").hidden = true; // у гостя один экран — «Главная»
     }
     else if (me && me.tiles) {
-      TILES = me.tiles;
+      TILES = me.tiles; OFF = me.hidden || []; LANG = me.lang || "ru"; document.documentElement.lang = LANG;
+      if (OFF.includes("news")) TABS = TABS.filter((t) => t[0] !== "news");
       $("bell").hidden = false; get("/api/inbox").then((st) => bellCount(st.unread)).catch(() => {});
       if (!has("finance") && !has("p2p")) TABS = TABS.filter((t) => t[0] !== "money");
     }

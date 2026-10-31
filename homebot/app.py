@@ -17,6 +17,7 @@ from homebot import __version__
 from homebot.changelog import whats_new
 from homebot.config import LOAD_PROBLEMS, Settings
 from homebot.handlers import build_routers
+from homebot.i18n import tr
 from homebot.middlewares import AdminOnlyMiddleware, UsageMiddleware
 from homebot.services import selfupdate, tiles
 from homebot.services.access import AccessService
@@ -45,10 +46,15 @@ COMMANDS = [
     BotCommand(command="tools", description="Конвертер файлов и инструменты"),
     BotCommand(command="server", description="Сервер: состояние, сеть, приложения"),
     BotCommand(command="status", description="Состояние сервера"),
+    BotCommand(command="home", description="Дом: свет, розетки, сцены"),
+    BotCommand(command="report", description="Отчёт о сервере: неделя, месяц, год"),
+    BotCommand(command="why", description="Спросить о сервере: /why почему тормозит"),
+    BotCommand(command="setup", description="Начало работы: что ещё настроить"),
     BotCommand(command="doctor", description="Самопроверка: всё ли подключено и работает"),
     BotCommand(command="repair", description="Ремонт сервера по PIN (если включён)"),
     BotCommand(command="tasks", description="Фоновые задачи"),
     BotCommand(command="settings", description="Настройки UNI"),
+    BotCommand(command="export", description="Перенос настроек на другой сервер"),
     BotCommand(command="cancel", description="Выйти из текущего режима"),
 ]
 
@@ -103,18 +109,54 @@ async def _status(bot: Bot, settings: Settings, store: StateStore, text: str, *,
     await store.set(KEY_STATUS_MESSAGE, sent.message_id)
 
 
+_OFF_COMMANDS: set[str] = set()  # команды выключенных модулей-разделов
+
+
+def set_off_commands(commands: set[str]) -> None:
+    _OFF_COMMANDS.clear()
+    _OFF_COMMANDS.update(commands)
+
+
+def _plugin_commands() -> list[BotCommand]:
+    """🧩 Команды загруженных внешних модулей — в конце списка «/»."""
+    from homebot import plugins
+
+    reg = plugins.REGISTRY
+    if reg is None:
+        return []
+    return [
+        BotCommand(command=c, description=(d or p.manifest.name)[:200])
+        for p in reg.plugins.values()
+        if p.loaded
+        for c, d in p.manifest.commands
+        if c in reg.commands
+    ][:30]
+
+
 def visible_commands(commands: list[BotCommand], connected: set[str]) -> list[BotCommand]:
-    """Список команд без команд неподключённых плиток."""
-    hidden = tiles.hidden_commands(connected)
-    return [c for c in commands if c.command not in hidden]
+    """Список команд без команд неподключённых плиток и выключенных разделов."""
+    hidden = tiles.hidden_commands(connected) | _OFF_COMMANDS
+    return [BotCommand(command=c.command, description=tr(c.description)) for c in commands if c.command not in hidden]
+
+
+def sync_modules(store: StateStore) -> None:
+    """Меню и подсказки команд — по списку выключенных модулей-разделов."""
+    from homebot.services import modules
+
+    ids = modules.off(store)
+    set_off_commands(modules.hidden_commands(ids))
+    kb.set_sections_off(modules.hidden_menu(ids))
 
 
 async def _on_startup(bot: Bot, settings: Settings, tasks: TaskManager, store: StateStore, apps: Apps | None = None) -> None:
     sections = tiles.connected_ids(apps) if apps is not None else set(tiles.BY_ID)
+    sync_modules(store)
     kb.set_connected_tiles(sections)
     with suppress(TelegramAPIError):  # у гостей по умолчанию короткий список, у вас в чате — полный
         await bot.set_my_commands(visible_commands(GUEST_COMMANDS, sections))
-        await bot.set_my_commands(visible_commands(COMMANDS, sections), scope=BotCommandScopeChat(chat_id=settings.admin_id))
+        await bot.set_my_commands(
+            visible_commands(COMMANDS, sections) + _plugin_commands(), scope=BotCommandScopeChat(chat_id=settings.admin_id)
+        )
     with suppress(TelegramAPIError):  # описание в пустом чате и в профиле бота
         await bot.set_my_short_description(BOT_SHORT_DESCRIPTION)
         await bot.set_my_description(BOT_DESCRIPTION)

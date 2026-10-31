@@ -60,6 +60,10 @@ class OllamaCb(CallbackData, prefix="o"):
     idx: int = -1  # индекс модели в списке (для PICK)
 
 
+class ReportCb(CallbackData, prefix="rp"):
+    period: str  # week | month | year (homebot.services.reports.PERIODS)
+
+
 class ChartCb(CallbackData, prefix="c"):
     period: str  # ключ из homebot.services.history.PERIODS
 
@@ -284,6 +288,7 @@ class UpdateAction(StrEnum):
     GO = "go"  # установить присланный архив (sig — начало его sha256)
     NO = "no"  # отмена
     ROLLBACK = "rb"  # вернуть прежнюю версию; go=0 — спросить, go=1 — выполнить
+    FETCH = "f"  # 🆕 скачать релиз с GitHub (sig — версия)
 
 
 class UpdateCb(CallbackData, prefix="u"):
@@ -300,6 +305,7 @@ class BackupAction(StrEnum):
     NOW = "now"  # сохранить сейчас
     SEND = "snd"  # прислать файл в чат (ts — какой; 0 = последний)
     RESTORE = "rs"  # восстановить; go=0 — спросить, go=1 — выполнить
+    IMPORT = "imp"  # 📦 принять присланный uni-settings.json; go=1 — применить
 
 
 class BackupCb(CallbackData, prefix="b"):

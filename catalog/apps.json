@@ -1,0 +1,21 @@
+{
+  "format": "uni-catalog",
+  "version": 1,
+  "apps": [
+    {"id": "homeassistant", "title": "Home Assistant", "icon": "🏠", "images": ["homeassistant/home-assistant", "home-assistant"], "port": 8123, "about": "Умный дом"},
+    {"id": "portainer", "title": "Portainer", "icon": "🐳", "images": ["portainer/portainer"], "port": 9000, "about": "Управление Docker"},
+    {"id": "nextcloud", "title": "Nextcloud", "icon": "☁️", "images": ["nextcloud"], "port": 80, "about": "Файлы и календарь"},
+    {"id": "immich", "title": "Immich", "icon": "📷", "images": ["immich-server", "immich-app/immich"], "port": 2283, "about": "Фото и видео"},
+    {"id": "vaultwarden", "title": "Vaultwarden", "icon": "🔐", "images": ["vaultwarden"], "port": 80, "about": "Пароли"},
+    {"id": "uptimekuma", "title": "Uptime Kuma", "icon": "📈", "images": ["uptime-kuma"], "port": 3001, "about": "Мониторинг сайтов"},
+    {"id": "grafana", "title": "Grafana", "icon": "📊", "images": ["grafana/grafana"], "port": 3000, "about": "Графики"},
+    {"id": "paperless", "title": "Paperless-ngx", "icon": "🗂", "images": ["paperless-ngx"], "port": 8000, "about": "Документы"},
+    {"id": "syncthing", "title": "Syncthing", "icon": "🔄", "images": ["syncthing"], "port": 8384, "about": "Синхронизация файлов"},
+    {"id": "prowlarr", "title": "Prowlarr", "icon": "🧭", "images": ["prowlarr"], "port": 9696, "about": "Индексаторы для Radarr и Sonarr"},
+    {"id": "bazarr", "title": "Bazarr", "icon": "💬", "images": ["bazarr"], "port": 6767, "about": "Субтитры"},
+    {"id": "jellyseerr", "title": "Jellyseerr", "icon": "🎟", "images": ["jellyseerr"], "port": 5055, "about": "Заявки на фильмы"},
+    {"id": "pihole", "title": "Pi-hole", "icon": "🕳", "images": ["pihole/pihole"], "port": 80, "about": "Блокировка рекламы", "path": "/admin"},
+    {"id": "filebrowser", "title": "File Browser", "icon": "📁", "images": ["filebrowser"], "port": 80, "about": "Файлы в браузере"},
+    {"id": "openwebui", "title": "Open WebUI", "icon": "💭", "images": ["open-webui"], "port": 8080, "about": "Чат с локальными моделями"}
+  ]
+}

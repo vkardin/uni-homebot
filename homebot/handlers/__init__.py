@@ -32,6 +32,8 @@ def build_routers() -> list[Router]:
         news,
         ollama,
         p2p,
+        platform,
+        plugins,
         power,
         quick,
         reminders,
@@ -73,6 +75,8 @@ def build_routers() -> list[Router]:
         sites.router,  # 🔎 слежка за ценами и страницами (FSM: ссылка)
         quick.router,  # 🧲 magnet, ссылки на товары, 🎙 голосовые
         access.router,  # 👥 заявки и права людей
+        platform.router,  # /rules, /servers, /home, /catalog — то же, что в панели
+        plugins.router,  # 🧩 внешние модули (API 1.0)
         fallback.router,  # всё, что не подошло выше
     ]
     # Двойная защита: даже если гость каким-то образом пройдёт мимо роутера гостей, админские обработчики его не примут.

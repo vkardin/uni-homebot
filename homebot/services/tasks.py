@@ -69,6 +69,10 @@ class TaskManager:
             raise ValueError(f"task {name!r} is already registered")
         self._tasks[name] = _ManagedTask(name, title, description, factory, default_enabled, hidden)
 
+    def unregister(self, name: str) -> None:
+        """Убрать ещё не запущенную задачу (модуль выключен); неизвестное имя — без ошибки."""
+        self._tasks.pop(name, None)
+
     def items(self) -> list[TaskInfo]:
         return [TaskInfo(t.name, t.title, t.description, t.running) for t in self._tasks.values() if not t.hidden]
 

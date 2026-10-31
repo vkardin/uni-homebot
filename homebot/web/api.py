@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import shutil
 import socket
 import time
@@ -176,7 +177,12 @@ async def me(request: web.Request) -> Any:
     guest = request.get("guest")
     if guest is None:
         # плитки — чтобы панель сразу знала, какие вкладки и разделы показывать
-        return {"role": "admin", "version": __version__, "tiles": tiles.describe(_ctx(request).apps)}
+        from homebot.services import modules
+
+        c = _ctx(request)
+        hidden = modules.hidden_panel(modules.off(c.store))
+        lang = c.settings.language
+        return {"role": "admin", "version": __version__, "tiles": tiles.describe(c.apps), "hidden": hidden, "lang": lang}
     return {
         "role": "guest",
         "name": guest.prefs.get("nick") or guest.name,
@@ -644,7 +650,42 @@ async def chat(request: web.Request) -> Any:
     ]
     if not history:
         raise ApiError("нет сообщений")
-    return {"reply": await c.ollama.chat(history), "model": c.ollama.active_model}
+    from homebot.services.ollama import OllamaError
+
+    try:
+        return {"reply": await c.ollama.chat(history), "model": c.ollama.active_model}
+    except OllamaError as exc:
+        raise ApiError(str(exc)) from exc
+
+
+@routes.get("/api/report")
+async def report(request: web.Request) -> Any:
+    """📈 Отчёт за week | month | year по часовым итогам."""
+    from homebot.services import reports
+
+    period = request.query.get("period", "week")
+    if period not in reports.PERIODS:
+        raise ApiError("неизвестный период")
+    return {"period": period, "report": reports.as_json(await reports.make(_ctx(request).db, period))}
+
+
+@routes.post("/api/ask-server")
+async def ask_server(request: web.Request) -> Any:
+    """🩺 Вопрос о сервере: модель отвечает по свежим фактам и ничего не выполняет."""
+    from homebot.services import server_help
+
+    c = _ctx(request)
+    question = str((await _json(request)).get("question", "")).strip()
+    if not question:
+        raise ApiError("нет вопроса")
+    fact_text = await server_help.facts(c.system, c.units, c.apps, c.tasks)
+    from homebot.services.ollama import OllamaError, strip_think
+
+    try:
+        reply = strip_think(await server_help.answer(c.ollama, question, fact_text))
+    except OllamaError as exc:
+        raise ApiError(str(exc)) from exc
+    return {"reply": reply, "facts": fact_text}
 
 
 @routes.get("/api/reminders")
@@ -753,9 +794,9 @@ def _modules_state(c: Ctx) -> dict[str, Any]:
     off = modules.off(c.store)
     items = []
     for tid, _ in modules.rows(c.apps, off):
-        tile = tiles.BY_ID[tid]
-        items.append({"id": tid, "title": f"{tile.icon} {tile.title}", "on": tid not in off})
-    return {"items": items, "broken": [{"title": t, "error": e} for t, e in c.tasks.broken()]}
+        kind = "section" if tid in modules.FEATURE_BY_ID else "app"
+        items.append({"id": tid, "title": modules.title(tid), "on": tid not in off, "kind": kind})
+    return {"items": items, "broken": [{"title": t, "error": e} for t, e in c.tasks.broken()], "hidden": modules.hidden_panel(off)}
 
 
 @routes.get("/api/modules")
@@ -771,6 +812,13 @@ async def modules_post(request: web.Request) -> Any:
 
     c = _ctx(request)
     body = await _json(request)
+    feature = modules.FEATURE_BY_ID.get(str(body.get("id", "")))
+    if feature is not None:
+        from homebot.app import sync_modules
+
+        await modules.set_off(c.store, feature.id, not body.get("on"))
+        sync_modules(c.store)  # меню в чате; подсказки команд обновятся при перезапуске
+        return _modules_state(c)
     tile = tiles.BY_ID.get(str(body.get("id", "")))
     if tile is None:
         raise ApiError("такого модуля нет", 404)
@@ -845,7 +893,7 @@ async def server_repair_post(request: web.Request) -> Any:
 def _launcher_state(c: Ctx) -> dict[str, Any]:
     from homebot.services import launcher
 
-    connected = {name for name in ("radarr", "sonarr", "jellyfin", "qbit", "adguard", "speedtest", "sites", "actual")
+    connected = {name for name in ("radarr", "sonarr", "jellyfin", "qbit", "adguard", "speedtest", "sites", "actual", "hass")
                  if getattr(c.apps, name, None) is not None}  # fmt: skip
     return {"apps": launcher.apps(c.settings, connected), "links": launcher.links(c.store)}
 
@@ -862,19 +910,371 @@ async def launcher_post(request: web.Request) -> Any:
     c = _ctx(request)
     body = await _json(request)
     items = launcher.links(c.store)
-    if body.get("op") == "add":
-        link = launcher.clean_link(str(body.get("title", "")), str(body.get("url", "")), str(body.get("icon", "")))
+    op = body.get("op")
+    if op == "add":
+        link = launcher.clean_link(
+            str(body.get("title", "")), str(body.get("url", "")), str(body.get("icon", "")), str(body.get("group", ""))
+        )
         if link is None:
             raise ApiError("нужны название и ссылка http(s)://")
         if len(items) >= launcher.MAX_LINKS:
             raise ApiError(f"не больше {launcher.MAX_LINKS} ссылок")
         items.append(link)
-    elif body.get("op") == "remove":
+    elif op == "remove":
         items = [x for x in items if x.get("url") != body.get("url")]
+    elif op == "move":
+        items = launcher.move(items, str(body.get("url", "")), -1 if int(body.get("step", 1)) < 0 else 1)
+    elif op == "group":
+        items = launcher.regroup(items, str(body.get("url", "")), str(body.get("group", "")))
     else:
         raise ApiError("неизвестное действие")
     await c.store.set(launcher.KEY, items)
     return _launcher_state(c)
+
+
+@routes.get("/api/launcher/status")
+async def launcher_status(request: web.Request) -> Any:
+    from homebot.services import launcher
+
+    c = _ctx(request)
+    if c.http is None:
+        return {}
+    st = _launcher_state(c)
+    probes = {x["id"]: x["probe"] for x in st["apps"]} | {x["url"]: x["url"] for x in st["links"]}
+    alive = await launcher.status(c.http, list(probes.values()))
+    return {key: alive.get(url) for key, url in probes.items()}
+
+
+# ======================================================================= 🏠 Home Assistant
+@routes.get("/api/hass")
+async def hass_get(request: web.Request) -> Any:
+    from homebot.services.hass import as_json
+
+    c = _ctx(request)
+    hass = _service(c.apps.hass, "Home Assistant")
+    try:
+        return {"items": [as_json(e) for e in await hass.entities()]}
+    except AppError as exc:
+        raise ApiError(str(exc), 502) from None
+
+
+@routes.post("/api/hass")
+async def hass_post(request: web.Request) -> Any:
+    c = _ctx(request)
+    hass = _service(c.apps.hass, "Home Assistant")
+    entity = str((await _json(request)).get("id", ""))
+    if not re.fullmatch(r"[a-z_]+\.[a-z0-9_]+", entity):
+        raise ApiError("неверное устройство")
+    try:
+        await hass.act(entity)
+        await asyncio.sleep(0.6)  # Home Assistant меняет состояние не мгновенно
+        return {"state": await hass.state(entity)}
+    except AppError as exc:
+        raise ApiError(str(exc), 502) from None
+
+
+# ======================================================================= ⚡ сценарии
+def _rules_state(c: Ctx) -> dict[str, Any]:
+    from dataclasses import asdict
+
+    from homebot.services import rules
+
+    items = [{**asdict(r), "text": rules.describe(r)} for r in rules.load(c.store)]
+    return {"items": items, "when": rules.WHEN, "then": rules.THEN, "numeric": sorted(rules.NUMERIC),
+            "restartable": list(c.power.restartable) if c.power is not None else []}  # fmt: skip
+
+
+@routes.get("/api/rules")
+async def rules_get(request: web.Request) -> Any:
+    return _rules_state(_ctx(request))
+
+
+@routes.post("/api/rules")
+async def rules_post(request: web.Request) -> Any:
+    from dataclasses import replace
+
+    from homebot.services import rules
+
+    c = _ctx(request)
+    body = await _json(request)
+    items = rules.load(c.store)
+    op, rid = body.get("op"), str(body.get("id", ""))
+    if op == "add":
+        if len(items) >= rules.MAX_RULES:
+            raise ApiError(f"не больше {rules.MAX_RULES} сценариев")
+        try:
+            items.append(rules.make({k: v for k, v in body.items() if k not in {"op", "id"}}))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+    elif op == "remove":
+        items = [r for r in items if r.id != rid]
+    elif op == "toggle":
+        items = [replace(r, on=not r.on) if r.id == rid else r for r in items]
+    else:
+        raise ApiError("неизвестное действие")
+    await rules.save(c.store, items)
+    return _rules_state(c)
+
+
+# ======================================================================= 🛰 другие машины
+async def _servers_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import fleet
+
+    agents = fleet.load(c.settings.state_dir)
+
+    async def one(a: Any) -> dict[str, Any]:
+        try:
+            return {**fleet.public(a), "ok": True, "m": await fleet.metrics(c.http, a)}
+        except Exception as exc:
+            return {**fleet.public(a), "ok": False, "error": str(exc)[:120] or "не отвечает"}
+
+    items = list(await asyncio.gather(*(one(a) for a in agents))) if c.http is not None else []
+    return {"items": items, "pushed": c.store.get("fleet.pushed") or {}}
+
+
+@routes.get("/api/servers")
+async def servers_get(request: web.Request) -> Any:
+    return await _servers_state(_ctx(request))
+
+
+@routes.post("/api/servers")
+async def servers_post(request: web.Request) -> Any:
+    from dataclasses import replace
+
+    from homebot.services import fleet
+
+    c = _ctx(request)
+    body = await _json(request)
+    agents = fleet.load(c.settings.state_dir)
+    name, op = str(body.get("name", "")), body.get("op")
+    if op == "add":
+        try:
+            agent = fleet.make(name, str(body.get("url", "")), str(body.get("token", "")))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+        if any(a.name == agent.name for a in agents) or len(agents) >= fleet.MAX_AGENTS:
+            raise ApiError("такое имя уже есть или машин слишком много")
+        try:
+            await fleet.metrics(c.http, agent)
+        except Exception as exc:
+            raise ApiError(f"агент не ответил: {str(exc)[:120]}") from None
+        agents.append(agent)
+    elif op == "remove":
+        agents = [a for a in agents if a.name != name]
+    elif op == "backups":
+        agents = [replace(a, backups=bool(body.get("on"))) if a.name == name else a for a in agents]
+    else:
+        raise ApiError("неизвестное действие")
+    fleet.save(c.settings.state_dir, agents)
+    return await _servers_state(c)
+
+
+# ======================================================================= 👪 люди и роли
+def _people_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services.access import FEATURES, ROLES, STATUS_ICON, role_of
+
+    if c.access is None:
+        return {"enabled": False, "people": [], "features": [], "roles": []}
+    people = [
+        {"id": p.id, "name": p.label, "status": p.status, "icon": STATUS_ICON[p.status], "perms": list(p.perms),
+         "role": role_of(p.perms), "seen": p.seen}
+        for p in c.access.people()
+    ]  # fmt: skip
+    return {
+        "enabled": True,
+        "people": people,
+        "features": [{"id": k, "title": v} for k, v in FEATURES.items()],
+        "roles": [{"id": k, "title": t} for k, (t, _) in ROLES.items()],
+    }
+
+
+@routes.get("/api/people")
+async def people_get(request: web.Request) -> Any:
+    return _people_state(_ctx(request))
+
+
+@routes.post("/api/people")
+async def people_post(request: web.Request) -> Any:
+    from homebot.services.access import APPROVED, BLOCKED
+
+    c = _ctx(request)
+    if c.access is None:
+        raise ApiError("доступ для других выключен (GUESTS_ENABLED=false)", 403)
+    body = await _json(request)
+    uid, op = int(body.get("id") or 0), body.get("op")
+    if op == "approve":
+        done = await c.access.set_status(uid, APPROVED)
+    elif op == "block":
+        done = await c.access.set_status(uid, BLOCKED)
+    elif op == "toggle":
+        done = await c.access.toggle(uid, str(body.get("feature", "")))
+    elif op == "role":
+        done = await c.access.set_role(uid, str(body.get("role", "")))
+    elif op == "remove":
+        done = await c.access.remove(uid)
+    else:
+        raise ApiError("неизвестное действие")
+    if not done:
+        raise ApiError("человек не найден", 404)
+    return _people_state(c)
+
+
+# ======================================================================= 🌍 каталог сообщества
+async def _community_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import community, launcher
+
+    apps = await community.load(c.http, c.settings.community_catalog_url)
+    found: dict[str, str] = {}
+    if c.apps.docker is not None:
+        try:
+            found = community.match(apps, await asyncio.wait_for(c.apps.docker.containers_raw(), 8))
+        except Exception as exc:  # Docker не ответил — просто без «найдено»
+            log.info("Community scan failed: %s", exc)
+    have = {x.get("title") for x in launcher.links(c.store)}
+    items = [
+        {"id": a["id"], "title": a["title"], "icon": a["icon"], "about": a["about"], "found": a["id"] in found,
+         "url": launcher.reachable(found[a["id"]], c.settings.web_url) if a["id"] in found else "", "added": a["title"] in have}
+        for a in apps
+    ]  # fmt: skip
+    items.sort(key=lambda x: (not x["found"], x["title"]))
+    return {"items": items}
+
+
+@routes.get("/api/community")
+async def community_get(request: web.Request) -> Any:
+    return await _community_state(_ctx(request))
+
+
+@routes.post("/api/community")
+async def community_post(request: web.Request) -> Any:
+    from homebot.services import launcher
+
+    c = _ctx(request)
+    body = await _json(request)
+    state = await _community_state(c)
+    item = next((x for x in state["items"] if x["id"] == body.get("id")), None)
+    url = str(body.get("url") or (item or {}).get("url") or "")
+    if item is None:
+        raise ApiError("такого шаблона нет", 404)
+    link = launcher.clean_link(item["title"], url, item["icon"])
+    if link is None:
+        raise ApiError("укажите адрес http(s)://")
+    links = [x for x in launcher.links(c.store) if x.get("url") != link["url"]]
+    if len(links) >= launcher.MAX_LINKS:
+        raise ApiError(f"не больше {launcher.MAX_LINKS} ссылок")
+    await c.store.set(launcher.KEY, [*links, link])
+    return await _community_state(c)
+
+
+# ======================================================================= 🧩 внешние модули (10.0)
+def _plugins_state() -> dict[str, Any]:
+    from homebot import plugins
+
+    reg = plugins.REGISTRY
+    return {
+        "api": plugins.API_VERSION,
+        "dir": str(reg.root) if reg else "",
+        "items": [p.as_json() for p in reg.plugins.values()] if reg else [],
+    }
+
+
+@routes.get("/api/plugins")
+async def plugins_get(request: web.Request) -> Any:
+    return _plugins_state()
+
+
+@routes.post("/api/plugins")
+async def plugins_post(request: web.Request) -> Any:
+    """Включить или выключить модуль. Код модуля загружается при следующем запуске бота (op=restart)."""
+    from homebot import plugins
+
+    c = _ctx(request)
+    body = await _json(request)
+    if body.get("op") == "restart":
+        import os
+        import signal
+
+        asyncio.get_running_loop().call_later(1.0, os.kill, os.getpid(), signal.SIGTERM)
+        return {"ok": True}
+    reg = plugins.REGISTRY
+    plugin = reg.plugins.get(str(body.get("id", ""))) if reg else None
+    if plugin is None:
+        raise ApiError("такого модуля нет", 404)
+    on = bool(body.get("on"))
+    if on and plugin.error and not plugin.enabled:
+        raise ApiError("модуль с ошибкой: " + plugin.error)
+    await plugins.set_enabled(c.store, plugin.manifest.id, on)
+    plugin.enabled = on
+    return {**_plugins_state(), "restart": True}
+
+
+# ======================================================================= 🧭 начало работы
+def _setup_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import setup
+
+    feeds = c.prefs.news().feeds if c.prefs is not None else ()
+    return setup.as_json(setup.steps(c.settings, c.apps, feeds), c.store)
+
+
+@routes.get("/api/setup")
+async def setup_get(request: web.Request) -> Any:
+    return _setup_state(_ctx(request))
+
+
+@routes.post("/api/setup")
+async def setup_post(request: web.Request) -> Any:
+    from homebot.services import setup
+
+    c = _ctx(request)
+    await setup.set_hidden(c.store, bool((await _json(request)).get("hidden")))
+    return _setup_state(c)
+
+
+# ======================================================================= ⚙️ общие настройки (settings.json)
+def _general_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import overrides
+
+    data = overrides.load(c.settings.state_dir)
+    saved = c.store.get("overrides_pending", False)
+    return {"items": overrides.describe(c.settings, data), "pending": bool(saved)}
+
+
+@routes.get("/api/settings/general")
+async def general_get(request: web.Request) -> Any:
+    return _general_state(_ctx(request))
+
+
+@routes.post("/api/settings/general")
+async def general_post(request: web.Request) -> Any:
+    import os
+    import signal
+
+    from homebot.services import overrides
+
+    c = _ctx(request)
+    body = await _json(request)
+    op = body.get("op")
+    if op == "restart":
+        await c.store.set("overrides_pending", False)
+        # как «Перезапустить бота» в ремонте: SIGTERM через секунду, systemd или Docker поднимут бота снова
+        asyncio.get_running_loop().call_later(1.0, os.kill, os.getpid(), signal.SIGTERM)
+        return {"ok": True}
+    name = str(body.get("name", ""))
+    if name in c.settings.model_fields_set:
+        raise ApiError("задано в .env на сервере — меняется только там")
+    data = overrides.load(c.settings.state_dir)
+    if op == "set":
+        try:
+            data[name] = overrides.validate(name, body.get("value"))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+    elif op == "reset":
+        data.pop(name, None)
+    else:
+        raise ApiError("неизвестное действие")
+    overrides.save(c.settings.state_dir, data)
+    await c.store.set("overrides_pending", True)
+    return _general_state(c)
 
 
 # ======================================================================= страница

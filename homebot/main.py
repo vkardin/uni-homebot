@@ -7,6 +7,7 @@ import logging
 import sys
 from contextlib import suppress
 from datetime import datetime
+from typing import Any
 
 import aiohttp
 from aiogram import Bot
@@ -16,7 +17,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramNetworkError, TelegramS
 from aiogram.types import BufferedInputFile
 from pydantic import ValidationError
 
-from homebot import __version__
+from homebot import __version__, i18n
 from homebot.app import build_dispatcher
 from homebot.config import Settings, for_container, load_settings, with_legacy_defaults
 from homebot.jobs.alerts import AlertsJob
@@ -35,7 +36,7 @@ from homebot.jobs.ssh_watch import SshWatchJob
 from homebot.jobs.weather_watch import WeatherAlertsJob
 from homebot.logging_setup import setup_logging
 from homebot.owner_claim import wait_owner
-from homebot.services import connect, modules, owner
+from homebot.services import connect, modules, overrides, owner
 from homebot.services.access import AccessService
 from homebot.services.apps import Apps, build_apps
 from homebot.services.article_translate import LibreTranslator
@@ -117,6 +118,31 @@ def _machine_translator(settings: Settings, http: aiohttp.ClientSession) -> Libr
     return LibreTranslator(http, settings.libretranslate_url, key)
 
 
+def _load_plugins(settings: Settings, store: StateStore, tasks: TaskManager, *, bot: Bot, http: Any, apps: Any) -> None:
+    """🧩 Внешние модули из STATE_DIR/modules: только включённые владельцем; ошибка модуля не мешает запуску."""
+    from homebot import plugins
+    from homebot.app import COMMANDS, GUEST_COMMANDS
+
+    reg = plugins.Registry(settings.state_dir / "modules")
+    plugins.REGISTRY = reg
+    reserved = {c.command for c in (*COMMANDS, *GUEST_COMMANDS)} | {"start", "help", "modules", "app", "cancel"}
+    for plugin in reg.discover(plugins.enabled_ids(store)):
+        if not reg.load(plugin, reserved, http=http, docker=apps.docker):
+            continue
+        for i, (seconds, job) in enumerate(plugin.jobs):
+
+            async def send(text: str) -> None:
+                await bot.send_message(settings.admin_id, text)
+
+            tasks.register(
+                f"mod_{plugin.manifest.id}_{i}",
+                f"🧩 {plugin.manifest.name}",
+                f"Модуль {plugin.manifest.id} {plugin.manifest.version}, раз в {seconds // 60} мин",
+                reg.job_factory(plugin, seconds, job, send),
+                default_enabled=True,
+            )
+
+
 def _register_jobs(
     tasks: TaskManager,
     *,
@@ -148,6 +174,15 @@ def _register_jobs(
     # Служебные задачи: работают всегда, в списке кнопок не показываются.
     sampler = SamplerJob(db=db, system=system, interval=settings.sample_interval_sec, retention_days=settings.history_retention_days)
     tasks.register("sampler", "История метрик", "", sampler.run, hidden=True)
+    from homebot.jobs.weekly_report import WeeklyReportJob
+
+    tasks.register(
+        "weekly_report",
+        "Отчёт за неделю",
+        "По понедельникам в 10:00: средняя нагрузка, пики, рост диска. Месяц и год — /report",
+        WeeklyReportJob(bot=bot, admin_id=admin, db=db, store=store, tz=settings.tz).run,
+        default_enabled=True,
+    )
     tasks.register("reminders", "Напоминания", "", RemindersJob(bot=bot, admin_id=admin, db=db, tz=settings.tz).run, hidden=True)
 
     restartable_units = PowerService(settings.restartable, power_enabled=settings.power_enabled).restartable
@@ -342,7 +377,26 @@ def _register_jobs(
         extra=parse_extra_paths(settings.backup_paths),
         tz=settings.tz,
     )
-    tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)  # расписание и кнопки — в ⚙️ Настройки → Бэкап
+    tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)
+    from homebot.jobs.fleet_watch import FleetWatchJob
+    from homebot.jobs.rules_watch import RulesJob
+
+    rules_job = RulesJob(bot=bot, admin_id=admin, store=store, system=system, units=units, apps=apps,
+                         power=PowerService(settings.restartable, power_enabled=settings.power_enabled))  # fmt: skip
+    tasks.register("rules", "Сценарии", "", rules_job.run, hidden=True)  # без правил ничего не делает
+
+    fleet_job = FleetWatchJob(bot=bot, admin_id=admin, store=store, http=http, state_dir=settings.state_dir,
+                              disk_limit=settings.alert_disk_percent)  # fmt: skip
+    tasks.register("fleet", "Другие машины", "", fleet_job.run, hidden=True)  # без агентов ничего не делает
+    if settings.update_channel != "off" and not settings.homebot_in_container:
+        from homebot.jobs.release_watch import ReleaseWatchJob
+
+        watch = ReleaseWatchJob(
+            bot=bot, admin_id=admin, store=store, http=http, repo=settings.update_repo, channel=settings.update_channel
+        )
+        tasks.register(
+            "releases", "Новые версии", "🆕 Раз в сутки проверяет релизы UNI на GitHub", watch.run, default_enabled=True
+        )  # расписание и кнопки — в ⚙️ Настройки → Бэкап
     if settings.kernel_watch_enabled:
         kernel_job = KernelWatchJob(bot=bot, admin_id=admin, store=store)
         tasks.register(
@@ -385,8 +439,12 @@ async def _main() -> int:
     store = StateStore(settings.state_dir / "state.json")
     store.load()
     settings = await _apply_defaults_profile(settings, store)
+    settings = overrides.apply(settings, overrides.load(settings.state_dir))  # ⚙️ настройки из панели, .env главнее
+    if store.get("overrides_pending"):
+        await store.set("overrides_pending", False)  # перезапуск уже применил сохранённое
     settings = for_container(connect.apply(settings, connect.load(settings.state_dir)))  # 🧩 приложения из чата
     set_translate_ukrainian(settings.translate_ukrainian)
+    i18n.set_lang(settings.language)
     db = Database(settings.state_dir / "homebot.db")
     try:
         db.open()
@@ -498,6 +556,11 @@ async def _main() -> int:
             ollama=ollama,
             home=home,
         )
+
+        for job in modules.off_jobs(modules.off(store)):  # 🧱 задачи выключенных разделов не запускаем
+            tasks.unregister(job)
+
+        _load_plugins(settings, store, tasks, bot=bot, http=http, apps=apps)
 
         power_service = PowerService(settings.restartable, power_enabled=settings.power_enabled)
         logs_service = LogsService([*settings.services, "homebot"])

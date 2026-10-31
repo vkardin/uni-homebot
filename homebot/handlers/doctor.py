@@ -89,6 +89,15 @@ async def _selfupdate() -> Check:
     return Check(OK, "Обновление из чата", "готово" + (f" · для отката есть v{previous}" if previous else ""))
 
 
+async def _env() -> Check:
+    from homebot.services.envcheck import unknown_keys
+
+    extra = unknown_keys()
+    if not extra:
+        return Check(OK, ".env", "все ключи знакомы")
+    return Check(WARN, ".env", "незнакомые ключи (опечатка или больше не нужны, бот их не трогает): " + ", ".join(extra[:8]))
+
+
 async def _backup(settings: Settings, store: StateStore) -> Check:
     status = backup_svc.last_status(store)
     items = backup_svc.list_backups(settings.state_dir)
@@ -168,6 +177,7 @@ async def _build_report(
             else [guard("Журнал ядра", _journal()), guard("SMART", _smart(smart)), guard("Обновление из чата", _selfupdate())]
         ),
         guard("Бэкап", _backup(settings, store)),
+        guard(".env", _env()),
         guard("Инструменты", _tools(converter)),
     ]
     off: list[str] = []
@@ -229,6 +239,13 @@ async def cb_doctor(
     await edit_or_send(call, _WAIT)
     text = await _build_report(bot, settings, apps, prefs, ollama, smart, news, store, converter, tasks)
     await edit_or_send(call, text, kb.doctor_kb(repair=bool(tasks.broken())))
+
+
+@router.message(Command("setup"))
+async def cmd_setup(message: Message, settings: Settings, apps: Apps, prefs: Prefs) -> None:
+    from homebot.services import setup
+
+    await message.answer(setup.render(setup.steps(settings, apps, prefs.news().feeds)))
 
 
 @router.callback_query(MenuCb.filter(F.action == MenuAction.REPAIR))

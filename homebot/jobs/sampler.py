@@ -12,6 +12,7 @@ from homebot.services.system import SystemService, SystemSnapshot
 log = logging.getLogger(__name__)
 
 _PRUNE_EVERY_SEC = 3600
+HOURLY_KEEP_SEC = 400 * 86400  # часовые итоги — для годовых отчётов
 
 
 def to_row(snap: SystemSnapshot, ts: int) -> MetricRow:
@@ -51,6 +52,8 @@ class SamplerJob:
         await self._db.add_metric(to_row(snap, now))
         if time.monotonic() - self._last_prune > _PRUNE_EVERY_SEC:
             self._last_prune = time.monotonic()
+            await self._db.rollup_hours(now)  # сначала сворачиваем в часы, потом удаляем подробности
+            await self._db.prune_hourly(now - HOURLY_KEEP_SEC)
             removed = await self._db.prune_metrics(now - self._retention)
             if removed:
                 log.info("Pruned %s old metric rows", removed)

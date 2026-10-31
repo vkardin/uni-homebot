@@ -38,6 +38,7 @@ TILES: tuple[Tile, ...] = (
     Tile("qbit", "qBittorrent", "🧲", ("QBIT_USERNAME", "QBIT_PASSWORD"), ("qbit",), commands=("torrents",)),
     Tile("adguard", "AdGuard", "🛡", ("ADGUARD_USERNAME", "ADGUARD_PASSWORD"), ("adguard",)),
     Tile("jellyfin", "Jellyfin", "📺", ("JELLYFIN_API_KEY",), ("jellyfin",)),
+    Tile("home", "Home Assistant", "🏠", ("HASS_TOKEN",), ("hass",), commands=("home",)),
 )
 BY_ID: dict[str, Tile] = {tile.id: tile for tile in TILES}
 MENU_TILES: tuple[Tile, ...] = tuple(tile for tile in TILES if tile.menu)
@@ -123,6 +124,14 @@ CONNECTORS: tuple[Connector, ...] = (
         5000,
         "changedetection_url",
         (Field("changedetection_api_key", "API-ключ: Settings → API", True),),
+    ),
+    Connector(
+        "hass",
+        "Home Assistant",
+        ("home-assistant", "homeassistant"),
+        8123,
+        "hass_url",
+        (Field("hass_token", "долгосрочный токен: профиль Home Assistant → Безопасность → Создать токен", True),),
     ),
     Connector(
         "actual",

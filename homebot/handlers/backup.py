@@ -1,17 +1,17 @@
-"""💾 Бэкап: сохранить сейчас, прислать файл, восстановить."""
+"""💾 Бэкап: сохранить сейчас, прислать файл, восстановить; 📦 перенос настроек (/export и присланный файл)."""
 
 from __future__ import annotations
 
 import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from homebot.config import Settings
 from homebot.services import backup as svc
-from homebot.services import usage
+from homebot.services import transfer, usage
 from homebot.services.db import Database
 from homebot.services.state import StateStore
 from homebot.ui import keyboards as kb
@@ -91,6 +91,71 @@ async def cb_restore(call: CallbackQuery, callback_data: BackupCb, settings: Set
         return
     text, markup = _home(settings, store)
     await edit_or_send(call, f"✅ Восстановлено: {', '.join(done)}. Прежнее состояние сохранено отдельной копией.\n\n{text}", markup)
+
+
+# ------------------------------------------------------------------ 📦 перенос настроек
+PENDING_IMPORT = "import-settings.json"
+
+
+@router.message(Command("export"))
+async def cmd_export(message: Message, settings: Settings, store: StateStore) -> None:
+    raw = transfer.export(settings.state_dir, store)
+    await message.answer_document(
+        BufferedInputFile(raw, transfer.FILE_NAME),
+        caption="📦 Настройки UNI для переноса. На новом сервере просто пришлите этот файл боту.\n"
+        "Токены, ключи приложений и данные сюда не входят.",
+    )
+
+
+@router.message(F.document, lambda m: bool(m.document and transfer.is_settings_file(m.document.file_name)))
+async def on_settings_file(message: Message, bot: Bot, settings: Settings) -> None:
+    doc = message.document
+    if doc is None or (doc.file_size or 0) > transfer.MAX_SIZE:
+        await message.answer("Файл слишком большой для настроек UNI.")
+        return
+    buf = await bot.download(doc)
+    raw = buf.read() if buf is not None else b""
+    try:
+        parsed = transfer.parse(raw)
+    except transfer.TransferError as exc:
+        await message.answer(f"Не получилось: {exc}.")
+        return
+    (settings.state_dir / PENDING_IMPORT).write_bytes(raw)
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Применить", callback_data=BackupCb(action=BackupAction.IMPORT, go=1).pack())],
+            [InlineKeyboardButton(text="Отмена", callback_data=BackupCb(action=BackupAction.IMPORT, go=0).pack())],
+        ]
+    )
+    await message.answer(
+        f"📦 Настройки UNI {parsed['version']}: настроек панели {len(parsed['settings'])}, "
+        f"разделов {len(parsed['state'])}.\nПрименить поверх текущих? Перед этим сохраню бэкап.",
+        reply_markup=markup,
+    )
+
+
+@router.callback_query(BackupCb.filter(F.action == BackupAction.IMPORT))
+async def cb_import(call: CallbackQuery, callback_data: BackupCb, settings: Settings, store: StateStore, db: Database) -> None:
+    pending = settings.state_dir / PENDING_IMPORT
+    if not callback_data.go or not pending.is_file():
+        pending.unlink(missing_ok=True)
+        await call.answer("Отменено" if not callback_data.go else "Файла уже нет, пришлите заново")
+        await edit_or_send(call, "📦 Перенос отменён.")
+        return
+    await call.answer("Применяю…")
+    try:
+        await svc.run_backup(settings.state_dir, db, store, keep=settings.backup_keep + 1, extra=[], tz=settings.tz)  # страховка
+        done = await transfer.apply(transfer.parse(pending.read_bytes()), settings.state_dir, store)
+    except (svc.BackupError, transfer.TransferError, OSError) as exc:
+        await edit_or_send(call, f"Не получилось: {exc}")
+        return
+    finally:
+        pending.unlink(missing_ok=True)
+    await edit_or_send(
+        call,
+        f"✅ Перенесено: {', '.join(done) or 'нечего'}.\nПеред этим сохранён бэкап. "
+        "Чтобы всё применилось, перезапустите бота: 🛠 /repair или Настройки в панели.",
+    )
 
 
 @router.message(Command("usage"))

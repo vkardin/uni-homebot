@@ -9,6 +9,7 @@ from typing import Any
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from homebot.i18n import tr
 from homebot.services.access import FEATURES, STATUS_ICON, Person
 from homebot.services.backup import BackupFile
 from homebot.services.cleanup import MAX_SHOWN, Watched, signature
@@ -100,19 +101,31 @@ def set_panel_url(url: str) -> None:
 # Разделы меню плиток (services/tiles.py): кнопка есть, только если плитка подключена.
 TILE_SECTIONS = {"movies": MenuAction.MOVIES, "finance": MenuAction.FINANCE, "p2p": MenuAction.P2P, "sites": MenuAction.SITES}
 _HIDDEN: set[MenuAction] = set()
+_OFF_SECTIONS: set[MenuAction] = set()  # 🧱 выключенные встроенные разделы (новости, напоминания…)
+_LAST_CONNECTED: set[str] = set()
 
 
 def set_connected_tiles(connected: set[str]) -> None:
     """Какие плитки подключены: разделы остальных прячутся из главного и гостевого меню."""
+    _LAST_CONNECTED.clear()
+    _LAST_CONNECTED.update(connected)
     _HIDDEN.clear()
     _HIDDEN.update(TILE_SECTIONS[t.menu] for t in MENU_TILES if t.id not in connected and t.menu in TILE_SECTIONS)
+    _HIDDEN.update(_OFF_SECTIONS)
+
+
+def set_sections_off(names: set[str]) -> None:
+    """Выключенные модули-разделы по именам MenuAction (NEWS, TOOLS…): их кнопки пропадают из меню."""
+    _OFF_SECTIONS.clear()
+    _OFF_SECTIONS.update(MenuAction[n] for n in names if n in MenuAction.__members__)
+    set_connected_tiles(set(_LAST_CONNECTED))
 
 
 def main_menu() -> InlineKeyboardMarkup:
     """Главное меню по приоритету: новости и личное — сверху, сервер — в отдельном разделе."""
     builder = InlineKeyboardBuilder()
     if _PANEL_URL:
-        builder.button(text="🖥 Открыть панель", web_app=WebAppInfo(url=_PANEL_URL))
+        builder.button(text=tr("🖥 Открыть панель"), web_app=WebAppInfo(url=_PANEL_URL))
     for text, action in (
         ("🗞 Новости", MenuAction.NEWS),
         ("🎬 Кино", MenuAction.MOVIES),
@@ -127,7 +140,7 @@ def main_menu() -> InlineKeyboardMarkup:
         ("⚙️ Настройки", MenuAction.SETTINGS),
     ):
         if action not in _HIDDEN:
-            builder.button(text=text, callback_data=_menu(action))
+            builder.button(text=tr(text), callback_data=_menu(action))
     builder.adjust(*([1] if _PANEL_URL else []), 2)
     return builder.as_markup()
 
