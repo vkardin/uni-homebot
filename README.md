@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-8.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-8.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-8.0.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-8.1.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,24 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🛰 Другие машины (8.1)
+
+Один бот присматривает за несколькими машинами. На второй машине работает **агент UNI** — маленький веб-сервер
+только на чтение (`homebot/agent.py`, нужны лишь `aiohttp` и `psutil`):
+
+```bash
+# на второй машине (NAS, Raspberry Pi…), из распакованного архива UNI
+sudo cp -r homebot /opt/uni-agent && cd /opt/uni-agent && sudo python3 -m venv .venv && sudo .venv/bin/pip install aiohttp psutil
+echo "UNI_AGENT_TOKEN=$(openssl rand -hex 24)" | sudo tee /etc/uni-agent.env && sudo chmod 600 /etc/uni-agent.env
+sudo cp extras/uni-agent.service /etc/systemd/system/ && sudo systemctl enable --now uni-agent
+```
+
+Потом в панели «Ещё → Другие машины → ＋ Добавить»: имя, адрес агента в Tailscale (`http://nas:8099`) и токен.
+Бот проверит связь и покажет CPU, память, диск и температуру каждой машины; раз в 5 минут проверяет их сам и
+пишет, если агент не отвечает три раза подряд или диск заполнен выше `ALERT_DISK_PERCENT`. Переключатель
+«Хранить копии бэкапов» отправляет на машину каждый свежий бэкап (агент хранит последние 5). Список машин с
+токенами — `STATE_DIR/agents.json` (права 600). Порт агента в интернет не открывайте: только Tailscale.
 
 ### 👪 UNI 8.0: люди и роли
 

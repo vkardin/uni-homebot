@@ -909,6 +909,59 @@ async def launcher_status(request: web.Request) -> Any:
     return {key: alive.get(url) for key, url in probes.items()}
 
 
+# ======================================================================= 🛰 другие машины
+async def _servers_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import fleet
+
+    agents = fleet.load(c.settings.state_dir)
+
+    async def one(a: Any) -> dict[str, Any]:
+        try:
+            return {**fleet.public(a), "ok": True, "m": await fleet.metrics(c.http, a)}
+        except Exception as exc:
+            return {**fleet.public(a), "ok": False, "error": str(exc)[:120] or "не отвечает"}
+
+    items = list(await asyncio.gather(*(one(a) for a in agents))) if c.http is not None else []
+    return {"items": items, "pushed": c.store.get("fleet.pushed") or {}}
+
+
+@routes.get("/api/servers")
+async def servers_get(request: web.Request) -> Any:
+    return await _servers_state(_ctx(request))
+
+
+@routes.post("/api/servers")
+async def servers_post(request: web.Request) -> Any:
+    from dataclasses import replace
+
+    from homebot.services import fleet
+
+    c = _ctx(request)
+    body = await _json(request)
+    agents = fleet.load(c.settings.state_dir)
+    name, op = str(body.get("name", "")), body.get("op")
+    if op == "add":
+        try:
+            agent = fleet.make(name, str(body.get("url", "")), str(body.get("token", "")))
+        except ValueError as exc:
+            raise ApiError(str(exc)) from None
+        if any(a.name == agent.name for a in agents) or len(agents) >= fleet.MAX_AGENTS:
+            raise ApiError("такое имя уже есть или машин слишком много")
+        try:
+            await fleet.metrics(c.http, agent)
+        except Exception as exc:
+            raise ApiError(f"агент не ответил: {str(exc)[:120]}") from None
+        agents.append(agent)
+    elif op == "remove":
+        agents = [a for a in agents if a.name != name]
+    elif op == "backups":
+        agents = [replace(a, backups=bool(body.get("on"))) if a.name == name else a for a in agents]
+    else:
+        raise ApiError("неизвестное действие")
+    fleet.save(c.settings.state_dir, agents)
+    return await _servers_state(c)
+
+
 # ======================================================================= 👪 люди и роли
 def _people_state(c: Ctx) -> dict[str, Any]:
     from homebot.services.access import FEATURES, ROLES, STATUS_ICON, role_of

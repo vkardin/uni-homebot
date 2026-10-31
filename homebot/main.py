@@ -343,6 +343,11 @@ def _register_jobs(
         tz=settings.tz,
     )
     tasks.register("backup", "Бэкап", "", backup_job.run, hidden=True)
+    from homebot.jobs.fleet_watch import FleetWatchJob
+
+    fleet_job = FleetWatchJob(bot=bot, admin_id=admin, store=store, http=http, state_dir=settings.state_dir,
+                              disk_limit=settings.alert_disk_percent)  # fmt: skip
+    tasks.register("fleet", "Другие машины", "", fleet_job.run, hidden=True)  # без агентов ничего не делает
     if settings.update_channel != "off" and not settings.homebot_in_container:
         from homebot.jobs.release_watch import ReleaseWatchJob
 

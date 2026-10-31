@@ -1,0 +1,25 @@
+# Агент UNI на другой машине (8.1). Установка:
+#   sudo cp -r homebot /opt/uni-agent && cd /opt/uni-agent && sudo python3 -m venv .venv
+#   sudo .venv/bin/pip install aiohttp psutil
+#   echo "UNI_AGENT_TOKEN=$(openssl rand -hex 24)" | sudo tee /etc/uni-agent.env && sudo chmod 600 /etc/uni-agent.env
+#   sudo cp extras/uni-agent.service /etc/systemd/system/ && sudo systemctl enable --now uni-agent
+# Токен из /etc/uni-agent.env впишите в панели главного бота: Ещё → Другие машины.
+[Unit]
+Description=UNI agent
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+StateDirectory=uni-agent
+EnvironmentFile=/etc/uni-agent.env
+WorkingDirectory=/opt/uni-agent
+ExecStart=/opt/uni-agent/.venv/bin/python -m homebot.agent --data /var/lib/uni-agent
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

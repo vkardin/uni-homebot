@@ -807,6 +807,29 @@ async function viewBackupPage(root) {
       h("div", { class: "dim small" }, "Восстановление — в боте: Настройки → Бэкап.")],
   })), fold("Чем вы пользуетесь", () => get("/api/usage"), (items) => ({ sum: items.length ? items[0].label : "пока пусто", body: items.map((u) => row(u.label, null, h("b", {}, u.count))) })));
 }
+// 🛰 другие машины: метрики агентов и копии бэкапов
+async function viewServers(root) {
+  const box = h("div");
+  const draw = (st) => {
+    const cards = st.items.map((a) => card((a.ok ? "🟢 " : "🔴 ") + a.name,
+      a.ok ? h("div", { class: "tiles mini" }, tile("CPU", a.m.cpu, pct(a.m.cpu)), tile("Память", a.m.ram, pct(a.m.ram)), tile("Диск", a.m.disk, pct(a.m.disk)),
+        a.m.temp != null ? tile("Темп.", a.m.temp, Math.round(a.m.temp) + "°", `var(--${sev(a.m.temp, 70, 85)})`) : tile("Работает", 0, fmtDur(a.m.uptime)))
+        : h("div", { class: "bad small" }, a.error),
+      h("div", { class: "list inner" }, setRow("Хранить копии бэкапов", st.pushed[a.name] ? "Последняя: " + st.pushed[a.name] : "Свежий бэкап отправляется сюда сам", sw(a.backups, async (v) => draw(await post("/api/servers", { op: "backups", name: a.name, on: v }))))),
+      h("button", { class: "btn sm bad", style: "margin-top:8px", onclick: act(async () => { if (await confirmAsk(`Убрать ${a.name}?`)) draw(await post("/api/servers", { op: "remove", name: a.name })); }) }, "Убрать")));
+    box.replaceChildren(...cards, st.items.length ? null : card(null, h("div", { class: "empty" }, "Других машин пока нет.")),
+      h("button", { class: "btn primary block", onclick: () => addServer(draw) }, "＋ Добавить машину"));
+  };
+  draw(await get("/api/servers"));
+  root.append(box);
+}
+function addServer(draw) {
+  const name = h("input", { placeholder: "Имя, например NAS", maxlength: "32" }), url = h("input", { placeholder: "http://nas:8099", inputmode: "url" }), token = h("input", { placeholder: "Токен агента", autocomplete: "off" });
+  sheet(h("div", { class: "sheet-title" }, "Новая машина"),
+    h("div", { class: "dim small" }, "На той машине: распакуйте архив UNI и запустите агента (README → «Другие машины»)."), name, url, token,
+    h("button", { class: "btn primary block", onclick: act(async () => { draw(await post("/api/servers", { op: "add", name: name.value, url: url.value, token: token.value })); closeSheet(); }, "Подключено") }, "Проверить и добавить"));
+}
+
 // 👪 люди: заявки, роли и права гостей
 async function viewPeople(root) {
   const box = h("div");
@@ -858,6 +881,7 @@ const SUBS = {
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],
+  servers: ["server", "Другие машины", "Метрики и копии бэкапов через агента UNI", viewServers],
   people: ["user", "Люди", "Заявки, роли и права гостей", viewPeople],
   community: ["search", "Каталог сообщества", "Home Assistant, Immich, Portainer и другие — на доску", viewCommunity],
   reminders: ["bell", "Напоминания", "Разовые и повторяющиеся", viewReminders], notes: ["notes", "Заметки", "Быстрые записи", viewNotes],
