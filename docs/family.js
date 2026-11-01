@@ -63,3 +63,16 @@ const tags={"en": {"video-glow": ["Ambient light", "LED", "Room colour"], "level
 function applyTags(){const lang=document.documentElement.lang.slice(0,2);document.querySelectorAll('[data-family-chip]').forEach(el=>{const [id,index]=el.dataset.familyChip.split(':');el.textContent=(tags[lang]||tags.en)[id][Number(index)];});}
 new MutationObserver(applyTags).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});applyTags();
 })();
+
+(() => {
+ const labels={ru:{try:'Попробовать',features:'Возможности',install:'Установить',download:'Скачать',donate:'Поддержать',support:'Поддержка',code:'GitHub'},uk:{try:'Спробувати',features:'Можливості',install:'Встановити',download:'Завантажити',donate:'Підтримати',support:'Підтримка',code:'GitHub'},en:{try:'Try it',features:'Features',install:'Install',download:'Download',donate:'Donate',support:'Support',code:'GitHub'}};
+ function applyLanguage(){
+  const lang=['ru','uk','en'].includes(document.documentElement.lang)?document.documentElement.lang:'ru';
+  document.querySelectorAll('[data-family-label]').forEach(el=>el.textContent=labels[lang][el.dataset.familyLabel]);
+  document.querySelectorAll('[data-lang]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.lang===lang)));
+  try{localStorage.setItem('vkardin-site-language',lang);for(const k of ['vg-lang','lv-lang','video-drift-lang','lang'])localStorage.setItem(k,lang);}catch{}
+ }
+ document.addEventListener('click',event=>{const link=event.target.closest('a[hreflang]');if(link&&['ru','uk','en'].includes(link.hreflang)){try{localStorage.setItem('vkardin-site-language',link.hreflang);}catch{}}},true);
+ new MutationObserver(applyLanguage).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
+ applyLanguage();
+})();
