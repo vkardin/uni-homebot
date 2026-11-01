@@ -1,0 +1,44 @@
+/* Shared presentation for the vkardin project family. */
+:root{--family-bg:#0a0a0b;--family-card:#131315;--family-line:#27272c;--family-text:#f3f2ef;--family-muted:#a2a1aa;--family-field:#1c1c20}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]){--family-bg:#f6f6f3;--family-card:#fff;--family-line:#dfdfda;--family-text:#16161a;--family-muted:#62626d;--family-field:#efefec}}
+body[data-family]{--bg:var(--family-bg);--bg2:var(--family-field);--card:var(--family-card);--card2:var(--family-field);--line:var(--family-line);--text:var(--family-text);--text-2:var(--family-text);--muted:var(--family-muted);--dim:var(--family-muted);--field:var(--family-field);background:var(--family-bg);color:var(--family-text);font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+body[data-family] .wrap{max-width:1120px;margin-inline:auto;padding-inline:24px}
+body[data-family] h1{font-size:clamp(38px,6.2vw,68px);line-height:1.06;letter-spacing:-.045em;text-wrap:balance}
+body[data-family] h2{font-size:clamp(27px,3.4vw,40px);letter-spacing:-.03em;line-height:1.16;text-wrap:balance}
+body[data-family] .hero{padding-block:76px 48px}
+body[data-family] .top{background:var(--family-bg);border-bottom:1px solid var(--family-line)}
+body[data-family] .btn{border-radius:999px;transition:background .18s,border-color .18s}
+body[data-family] .btn.primary,body[data-family] .btn-primary{background:var(--family-text);border-color:var(--family-text);color:var(--family-bg);box-shadow:none}
+body[data-family] img{max-width:100%}
+body[data-family] a:focus-visible,body[data-family] button:focus-visible{outline:2px solid var(--family-accent,#b79bff);outline-offset:4px}
+body[data-family] section[id]{scroll-margin-top:90px}
+.family-nav{font:500 12px/1.4 Inter,system-ui,sans-serif!important;background:var(--family-card);border-bottom:1px solid var(--family-line);color:var(--family-muted);position:relative;z-index:11;display:block!important;padding:0!important}
+.family-nav-inner{display:flex;align-items:center;gap:24px;max-width:1120px;margin:auto;padding:12px 24px;min-height:44px}
+.family-brand{font-weight:750!important;letter-spacing:-.02em;color:var(--family-text)!important;text-decoration:none!important;white-space:nowrap}
+.family-nav-links{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.family-nav a{color:var(--family-muted);text-decoration:none;font:inherit}
+.family-nav a:hover,.family-nav a[aria-current=page]{color:var(--family-text)}
+.family-skip{position:fixed;left:12px;top:-100px;z-index:100;background:var(--family-text);color:var(--family-bg);padding:10px;border-radius:8px}
+.family-skip:focus{top:12px}
+.family-section{padding:80px 0!important;border-top:1px solid var(--family-line);background:var(--family-bg);color:var(--family-text)}
+.family-section .family-wrap{max-width:1120px;margin:auto;padding:0 24px}
+.family-kicker{text-transform:uppercase;letter-spacing:.16em;font-size:11px;font-weight:700;color:var(--family-muted);margin:0 0 12px}
+.family-section h2{margin:0 0 12px!important;color:var(--family-text)}
+.family-intro{max-width:65ch;color:var(--family-muted);margin:0 0 32px;line-height:1.7}
+.family-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.family-card{--project-accent:#b79bff;border:1px solid var(--family-line);border-radius:20px;padding:28px;background:var(--family-card);display:flex;flex-direction:column;gap:18px;transition:transform .18s,border-color .18s}
+.family-card:hover{border-color:var(--project-accent);transform:translateY(-3px)}
+.family-card-header{display:flex!important;align-items:center;gap:16px;padding:0!important;border:0!important;background:none!important;position:static!important;margin:0!important}
+.family-icon{width:54px;height:54px;border:1px solid color-mix(in srgb,var(--project-accent) 35%,var(--family-line));background:color-mix(in srgb,var(--project-accent) 9%,var(--family-card));border-radius:15px;display:grid;place-items:center;flex:none;color:var(--project-accent);font-weight:800;font-size:22px}
+.family-icon img{width:32px;height:32px;object-fit:contain}
+.family-card h3{font-size:22px!important;line-height:1.2;letter-spacing:-.03em;margin:0 0 5px!important;color:var(--family-text)}
+.family-card small{font-size:12px;color:var(--family-muted)}
+.family-card p{margin:0!important;color:var(--family-muted);font-size:15px;line-height:1.7}
+.family-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:auto;padding-top:3px}
+.family-actions a{font-size:13px!important;font-weight:600;text-decoration:none!important;color:var(--family-muted)}
+.family-actions a:first-child{color:var(--family-text);border:1px solid var(--family-line);padding:9px 14px;border-radius:999px}
+.family-actions a:hover{color:var(--family-text);border-color:var(--project-accent)}
+.family-credit{margin-top:24px;font-size:13px;color:var(--family-muted)}
+.family-credit a{color:var(--family-text)}
+@media(max-width:760px){.family-nav-inner{align-items:flex-start;gap:12px}.family-nav-links{gap:8px 14px;justify-content:flex-end}.family-grid{grid-template-columns:1fr}.family-section{padding-block:48px!important}.family-card{padding:22px}body[data-family] .hero{padding-block:48px 32px}body[data-family] .wrap{padding-inline:18px}.family-section .family-wrap{padding-inline:18px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}.family-card,body[data-family] .btn{transition:none}.family-card:hover{transform:none}}

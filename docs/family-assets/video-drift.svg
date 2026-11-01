@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 16 96 96" role="img" aria-label="Video Drift"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset=".5" stop-color="#5fb4ff"/><stop offset="1" stop-color="#a98bff"/></linearGradient><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>
+  <rect x="16" y="16" width="96" height="96" rx="24" fill="#0b0b0d"/>
+  <rect x="28" y="34" width="56" height="42" rx="9" fill="none" stroke="#f3f2ef" stroke-width="4" opacity=".22"/>
+  <rect x="50" y="56" width="48" height="36" rx="9" fill="none" stroke="url(#g)" stroke-width="10" filter="url(#b)" opacity=".9"/>
+  <rect x="50" y="56" width="48" height="36" rx="9" fill="#0b0b0d" stroke="url(#g)" stroke-width="5"/>
+  <path d="M68.5 66.5 L80.5 74 L68.5 81.5 Z" fill="#f3f2ef" opacity="0.55" stroke="#f3f2ef" stroke-width="4" stroke-linejoin="round"/></svg>
