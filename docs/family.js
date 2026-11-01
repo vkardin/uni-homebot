@@ -76,3 +76,62 @@ new MutationObserver(applyTags).observe(document.documentElement,{attributes:tru
  new MutationObserver(applyLanguage).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
  applyLanguage();
 })();
+
+// One-time scroll reveal shared by all project sites.
+(() => {
+  if (!('IntersectionObserver' in window)) return;
+  const root = document.documentElement;
+  const media = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduced = () => media.matches || root.dataset.motion === 'reduce';
+  const selector = '.feat, .mlist, .app, .tile, .card, .step, .steps > *, .faq details, .gallery > *, .term, .demo-grid, .family-card, .hub-section-head, .hub-principles > div, section h2';
+  const seen = new WeakSet();
+  const pending = new Set();
+  function reveal(el, animate = true) {
+    if (!pending.delete(el)) return;
+    observer.unobserve(el);
+    el.classList.remove('family-reveal-pending');
+    if (animate && !reduced()) {
+      el.classList.add('family-reveal-enter');
+      el.addEventListener('animationend', () => el.classList.remove('family-reveal-enter'), {once:true});
+    }
+  }
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) if (entry.isIntersecting) reveal(entry.target);
+  }, {rootMargin:'0px 0px -8% 0px', threshold:0});
+  function scan() {
+    let index = 0;
+    for (const el of document.querySelectorAll(selector)) {
+      if (seen.has(el) || el.closest('template, dialog, [aria-hidden="true"]') || el.parentElement?.closest(selector)) continue;
+      seen.add(el);
+      if (reduced() || el.getBoundingClientRect().top < innerHeight * .92) continue;
+      try {
+        el.style.setProperty('--family-reveal-delay', (index++ % 3) * 70 + 'ms');
+        pending.add(el);
+        el.classList.add('family-reveal-pending');
+        observer.observe(el);
+      } catch {
+        reveal(el, false);
+      }
+    }
+  }
+  function syncMotion() {
+    if (reduced()) {
+      for (const el of [...pending]) reveal(el, false);
+      document.querySelectorAll('.family-reveal-enter').forEach(el => el.classList.remove('family-reveal-enter'));
+    }
+  }
+  new MutationObserver(syncMotion).observe(root, {attributes:true, attributeFilter:['data-motion']});
+  media.addEventListener('change', syncMotion);
+  document.addEventListener('focusin', event => {
+    const el = event.target.closest('.family-reveal-pending');
+    if (el) reveal(el, false);
+  });
+  addEventListener('pageshow', () => {
+    for (const el of [...pending]) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < innerHeight && rect.bottom >= 0) reveal(el, false);
+    }
+  });
+  scan();
+  new MutationObserver(scan).observe(document.body, {childList:true, subtree:true});
+})();

@@ -99,3 +99,12 @@ body[data-family] .top .langs a[aria-current],body[data-family] .top .langs butt
 @media(max-width:430px){body[data-family] .top .nav{display:none}body[data-family] .top .langs{margin-left:auto}body[data-family] .top .brand{font-size:15px}}
 :root[data-theme=light] body[data-family=video-drift] .hero h1 em{background-image:linear-gradient(90deg,#087d70,#2464b8,#7043bb)}
 @media(prefers-color-scheme:light){:root:not([data-theme=dark]) body[data-family=video-drift] .hero h1 em{background-image:linear-gradient(90deg,#087d70,#2464b8,#7043bb)}}
+
+/* Shared scroll reveal: same distance, timing and stagger on every site. */
+.family-reveal-pending{opacity:0;transform:translateY(18px)}
+.family-reveal-enter{animation:family-reveal-in .6s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--family-reveal-delay,0ms)}
+@keyframes family-reveal-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+:root[data-motion=reduce] .family-reveal-pending{opacity:1!important;transform:none!important}
+:root[data-motion=reduce] .family-reveal-enter{animation:none!important}
+@media(prefers-reduced-motion:reduce){.family-reveal-pending{opacity:1!important;transform:none!important}.family-reveal-enter{animation:none!important}}
+@media print{.family-reveal-pending{opacity:1!important;transform:none!important}.family-reveal-enter{animation:none!important}}
