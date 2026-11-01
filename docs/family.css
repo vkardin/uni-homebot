@@ -42,3 +42,46 @@ body[data-family] section[id]{scroll-margin-top:90px}
 .family-credit a{color:var(--family-text)}
 @media(max-width:760px){.family-nav-inner{align-items:flex-start;gap:12px}.family-nav-links{gap:8px 14px;justify-content:flex-end}.family-grid{grid-template-columns:1fr}.family-section{padding-block:48px!important}.family-card{padding:22px}body[data-family] .hero{padding-block:48px 32px}body[data-family] .wrap{padding-inline:18px}.family-section .family-wrap{padding-inline:18px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}.family-card,body[data-family] .btn{transition:none}.family-card:hover{transform:none}}
+
+/* Preview-led project cards. */
+.family-card{position:relative;overflow:hidden;gap:16px;padding:0 28px 26px;border-color:color-mix(in srgb,var(--project-accent) 22%,var(--family-line));background:linear-gradient(150deg,color-mix(in srgb,var(--project-accent) 7%,var(--family-card)),var(--family-card) 60%)}
+.family-preview{display:block;margin:0 -28px 8px;overflow:hidden;aspect-ratio:16/10;background:color-mix(in srgb,var(--project-accent) 12%,var(--family-card));border-bottom:1px solid var(--family-line)}
+.family-preview img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .35s}
+.family-card:hover .family-preview img{transform:scale(1.025)}
+.family-card .family-chips{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
+.family-chips li{font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;color:var(--family-text);background:color-mix(in srgb,var(--project-accent) 13%,transparent);border:1px solid color-mix(in srgb,var(--project-accent) 20%,var(--family-line))}
+@media(max-width:760px){.family-card{padding:0 22px 22px}.family-preview{margin-inline:-22px}}
+@media(prefers-reduced-motion:reduce){.family-preview img{transition:none}.family-card:hover .family-preview img{transform:none}}
+
+/* Shared site controls and component tokens. */
+:root[data-theme=light]{--family-bg:#f6f6f3;--family-card:#fff;--family-line:#dfdfda;--family-text:#16161a;--family-muted:#62626d;--family-field:#efefec;color-scheme:light}
+:root[data-theme=dark]{--family-bg:#0a0a0b;--family-card:#131315;--family-line:#27272c;--family-text:#f3f2ef;--family-muted:#a2a1aa;--family-field:#1c1c20;color-scheme:dark}
+@media(prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light}}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark}}
+body[data-family]{--bg-soft:var(--family-field);--on-accent:var(--family-bg);--accent:var(--family-text);--brand:var(--family-text);--brand-strong:var(--family-text);--warn:var(--family-muted);--topbar:var(--family-bg);--hover-line:var(--family-muted);--font:Inter,system-ui,-apple-system,'Segoe UI',sans-serif}
+body[data-family] .top .wrap{height:60px;gap:16px}
+body[data-family] .top .brand{font-size:16px;font-weight:650;letter-spacing:-.01em;color:var(--family-text)}
+body[data-family] .top .brand img{width:28px;height:28px}
+body[data-family] .top nav,body[data-family] .top .nav{gap:20px;font-size:14px}
+body[data-family] .top nav a,body[data-family] .top .nav a{font-size:14px;font-weight:400;color:var(--family-muted)}
+body[data-family] .top nav a:hover{color:var(--family-text)}
+body[data-family] .langs,body[data-family] .top nav .langs{display:flex;gap:2px;border:0;border-radius:999px;background:var(--family-field);padding:3px}
+body[data-family] .langs button,body[data-family] .langs a{font:600 12px var(--font);padding:5px 10px;border-radius:999px;color:var(--family-muted);border:0;text-decoration:none}
+body[data-family] .langs button[aria-pressed=true],body[data-family] .top nav .langs a[aria-current]{background:var(--family-text);color:var(--family-bg)}
+body[data-family] .btn{font:600 15px var(--font);padding:12px 20px;border:1px solid var(--family-line);border-radius:999px;background:var(--family-card);color:var(--family-text);box-shadow:none}
+body[data-family] .btn.primary,body[data-family] .btn-primary{background:var(--family-text);border-color:var(--family-text);color:var(--family-bg)}
+body[data-family] .btn.primary:hover,body[data-family] .btn-primary:hover{background:var(--family-text);filter:brightness(.9)}
+body[data-family] .copy{background:var(--family-field);color:var(--family-text);border:1px solid var(--family-line);border-radius:999px;font:600 13px var(--font)}
+body[data-family] .tile,body[data-family] .card,body[data-family] .os,body[data-family] details{border-radius:16px}
+.family-settings-button{flex:none;margin-left:4px;min-width:30px;height:30px;border:1px solid var(--family-line);border-radius:50%;background:transparent;color:var(--family-text);font-size:17px;cursor:pointer}
+.family-settings-dialog{width:min(420px,calc(100% - 32px));border:1px solid var(--family-line);border-radius:20px;padding:26px;background:var(--family-card);color:var(--family-text);font:15px/1.5 Inter,system-ui,sans-serif;box-shadow:0 30px 100px #0006}
+.family-settings-dialog::backdrop{background:#0008;backdrop-filter:blur(6px)}
+.family-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+body[data-family] .family-settings-heading h2{font-size:22px;margin:0}
+.family-close{border:0;background:transparent;color:var(--family-muted);font-size:26px;cursor:pointer}
+.family-settings-dialog label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}
+.family-settings-dialog select{font:inherit;max-width:180px;background:var(--family-field);border:1px solid var(--family-line);border-radius:9px;color:var(--family-text);padding:8px}
+.family-settings-dialog p{font-size:13px;color:var(--family-muted);margin:24px 0 0}
+html[data-motion=reduce]{scroll-behavior:auto!important}
+html[data-motion=reduce] *,html[data-motion=reduce] *::before,html[data-motion=reduce] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(max-width:760px){.family-nav-inner{gap:8px;padding-inline:18px}.family-nav-links{gap:6px 10px}.family-settings-button{margin-left:0}}
