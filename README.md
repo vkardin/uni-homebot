@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/banner.webp" alt="UNI 10.0 — домашний сервер в Telegram">
+<img src=".github/assets/project-banner.svg" alt="UNI by vkardin" width="100%">
 
 **Ваш домашний сервер в Telegram.** Приложения, мониторинг, новости и ремонт сервера: в чате и в красивом мини-приложении.
 
@@ -817,3 +817,16 @@ ruff check .
 
 Тесты не требуют сети и Telegram. `tests/test_wiring.py` проверяет связку с aiogram (импорты роутеров,
 имена DI-параметров обработчиков, длину и разбор `callback_data` у всех кнопок).
+
+<!-- project-family:start -->
+## Другие инструменты от vkardin
+
+| Project | Проекты |
+| --- | --- |
+| **[Video Glow](https://vkardin.github.io/video-glow/)** | Подсветка вокруг видео в цвет кадра. Мягкое свечение, LED-лента и цвет комнаты. [GitHub](https://github.com/vkardin/video-glow) |
+| **[Leveler](https://vkardin.github.io/leveler/)** | Ровная громкость, разборчивые диалоги, эквалайзер и управление скоростью. [GitHub](https://github.com/vkardin/leveler) |
+| **[Video Drift](https://vkardin.github.io/video-drift/)** | Видео поверх других окон, субтитры, сохранение позиции и заметки к моментам. [GitHub](https://github.com/vkardin/video-drift) |
+| **[Snapt](https://vkardin.github.io/snapt/)** | Скриншоты, стрелки и подписи. Приложение для Windows, macOS и Linux и расширение браузера. [GitHub](https://github.com/vkardin/snapt) |
+
+[github.com/vkardin](https://github.com/vkardin) · Независимые инструменты · открытый код
+<!-- project-family:end -->
