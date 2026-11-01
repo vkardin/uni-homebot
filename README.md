@@ -819,9 +819,11 @@ ruff check .
 имена DI-параметров обработчиков, длину и разбор `callback_data` у всех кнопок).
 
 <!-- project-family:start -->
+
+[**vkardin / tools — каталог всех проектов ↗**](https://vkardin.github.io/video-glow/projects/)
 ## Другие инструменты от vkardin
 
-| Project | Проекты |
+| Проект | Описание |
 | --- | --- |
 | **[Video Glow](https://vkardin.github.io/video-glow/)** | Подсветка вокруг видео в цвет кадра. Мягкое свечение, LED-лента и цвет комнаты. [GitHub](https://github.com/vkardin/video-glow) |
 | **[Leveler](https://vkardin.github.io/leveler/)** | Ровная громкость, разборчивые диалоги, эквалайзер и управление скоростью. [GitHub](https://github.com/vkardin/leveler) |
