@@ -1,16 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8B5CF6"/>
-      <stop offset="1" stop-color="#5B21B6"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <g fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M15.4 25.6V15.4h10.2"/>
-    <path d="M38.4 15.4h10.2v10.2"/>
-    <path d="M48.6 38.4v10.2H38.4"/>
-    <path d="M25.6 48.6H15.4V38.4"/>
-  </g>
-  <circle cx="32" cy="32" r="4.5" fill="#fff"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#fbad97"/><stop offset=".5" stop-color="#b09bff"/><stop offset="1" stop-color="#76bfff"/></linearGradient></defs><rect width="96" height="96" rx="24" fill="#101013"/><rect x="12" y="12" width="72" height="72" rx="18" fill="none" stroke="#ffffff14"/><path d="M37 27H29Q27 27 27 29V37M59 27H67Q69 27 69 29V37M27 59V67Q27 69 29 69H37M69 59V67Q69 69 67 69H59" fill="none" stroke="url(#g)" stroke-width="5" stroke-linecap="round"/><rect x="41" y="41" width="14" height="14" rx="4" fill="url(#g)"/></svg>
