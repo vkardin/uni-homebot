@@ -6,6 +6,7 @@
   function apply() {
     const code = document.documentElement.lang.slice(0,2), lang = words[code] ? code : 'en';
     if (lang === previous) return; previous = lang;
+    document.querySelectorAll('.family-preview').forEach(link => { const id = new URL(link.href).pathname.split('/')[1]; const img = link.querySelector('img'); if (img && projects[id]) img.src = 'https://vkardin.github.io/media/' + id + '-' + lang + '.webp?v=7'; });
     document.querySelectorAll('[data-family-word]').forEach((el) => { el.textContent = words[lang][el.dataset.familyWord] + (el.dataset.familyWord === 'site' ? ' ↗' : ''); });
     document.querySelectorAll('[data-family-type]').forEach((el) => { el.textContent = projects[el.dataset.familyType].type[lang]; });
     document.querySelectorAll('[data-family-description]').forEach((el) => { el.textContent = projects[el.dataset.familyDescription].desc[lang]; });

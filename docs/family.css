@@ -119,3 +119,5 @@ body[data-family] .top .langs a[aria-current],body[data-family] .top .langs butt
 .family-brand:hover .family-brand-v{color:#d9c9ff}
 @media(prefers-reduced-motion:reduce){.family-brand::after,.family-brand-v{transition:none}}
 :root[data-motion=reduce] .family-brand::after,:root[data-motion=reduce] .family-brand-v{transition:none}
+
+.family-preview{aspect-ratio:8/5}.family-preview img{object-fit:contain;transform:none!important}.family-card-header{min-height:54px}.family-card .family-actions{align-items:center;min-height:44px}.family-card .family-chips{align-items:center;min-height:30px}
