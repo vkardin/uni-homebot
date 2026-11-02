@@ -108,3 +108,14 @@ body[data-family] .top .langs a[aria-current],body[data-family] .top .langs butt
 :root[data-motion=reduce] .family-reveal-enter{animation:none!important}
 @media(prefers-reduced-motion:reduce){.family-reveal-pending{opacity:1!important;transform:none!important}.family-reveal-enter{animation:none!important}}
 @media print{.family-reveal-pending{opacity:1!important;transform:none!important}.family-reveal-enter{animation:none!important}}
+
+/* Shared author signature and homepage link. */
+.family-brand{position:relative;display:inline-flex;align-items:baseline;gap:6px;padding:7px 2px;line-height:1;isolation:isolate}
+.family-brand-by{align-self:flex-start;margin-top:2px;font-size:10px;font-weight:450;letter-spacing:.01em;color:var(--family-muted);opacity:.85}
+.family-brand-name{font-size:21px;font-weight:780;letter-spacing:-.055em;line-height:1.05;color:var(--family-text)}
+.family-brand-v{color:#b9a3ed;transition:color .2s}
+.family-brand::after{content:"";position:absolute;left:20px;right:2px;bottom:1px;height:1px;background:linear-gradient(90deg,#b9a3ed,transparent);transform:scaleX(0);transform-origin:left;transition:transform .2s}
+.family-brand:hover::after,.family-brand:focus-visible::after{transform:scaleX(1)}
+.family-brand:hover .family-brand-v{color:#d9c9ff}
+@media(prefers-reduced-motion:reduce){.family-brand::after,.family-brand-v{transition:none}}
+:root[data-motion=reduce] .family-brand::after,:root[data-motion=reduce] .family-brand-v{transition:none}
