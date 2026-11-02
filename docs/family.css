@@ -1,6 +1,6 @@
 /* Shared presentation for the vkardin project family. */
 :root{--family-bg:#0a0a0b;--family-card:#131315;--family-line:#27272c;--family-text:#f3f2ef;--family-muted:#a2a1aa;--family-field:#1c1c20}
-@media(prefers-color-scheme:light){:root:not([data-theme=dark]){--family-bg:#f6f6f3;--family-card:#fff;--family-line:#dfdfda;--family-text:#16161a;--family-muted:#62626d;--family-field:#efefec}}
+
 body[data-family]{--bg:var(--family-bg);--bg2:var(--family-field);--card:var(--family-card);--card2:var(--family-field);--line:var(--family-line);--text:var(--family-text);--text-2:var(--family-text);--muted:var(--family-muted);--dim:var(--family-muted);--field:var(--family-field);background:var(--family-bg);color:var(--family-text);font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
 body[data-family] .wrap{max-width:1120px;margin-inline:auto;padding-inline:24px}
 body[data-family] h1{font-size:clamp(38px,6.2vw,68px);line-height:1.06;letter-spacing:-.045em;text-wrap:balance}
@@ -54,10 +54,10 @@ body[data-family] section[id]{scroll-margin-top:90px}
 @media(prefers-reduced-motion:reduce){.family-preview img{transition:none}.family-card:hover .family-preview img{transform:none}}
 
 /* Shared site controls and component tokens. */
-:root[data-theme=light]{--family-bg:#f6f6f3;--family-card:#fff;--family-line:#dfdfda;--family-text:#16161a;--family-muted:#62626d;--family-field:#efefec;color-scheme:light}
-:root[data-theme=dark]{--family-bg:#0a0a0b;--family-card:#131315;--family-line:#27272c;--family-text:#f3f2ef;--family-muted:#a2a1aa;--family-field:#1c1c20;color-scheme:dark}
-@media(prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light}}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark}}
+
+:root{--family-bg:#0a0a0b;--family-card:#131315;--family-line:#27272c;--family-text:#f3f2ef;--family-muted:#a2a1aa;--family-field:#1c1c20;color-scheme:dark}
+
+:root{color-scheme:dark}
 body[data-family]{--bg-soft:var(--family-field);--on-accent:var(--family-bg);--accent:var(--family-text);--brand:var(--family-text);--brand-strong:var(--family-text);--warn:var(--family-muted);--topbar:var(--family-bg);--hover-line:var(--family-muted);--font:Inter,system-ui,-apple-system,'Segoe UI',sans-serif}
 body[data-family] .top .wrap{height:60px;gap:16px}
 body[data-family] .top .brand{font-size:16px;font-weight:650;letter-spacing:-.01em;color:var(--family-text)}
@@ -97,8 +97,8 @@ body[data-family] .top .langs a,body[data-family] .top .langs button{font:600 12
 body[data-family] .top .langs a[aria-current],body[data-family] .top .langs button[aria-pressed=true]{background:var(--family-text);color:var(--family-bg)}
 @media(max-width:760px){body[data-family] .top .wrap{height:60px;padding-inline:18px;gap:12px}body[data-family] .top .nav{gap:12px}body[data-family] .top .nav .opt{display:none}}
 @media(max-width:430px){body[data-family] .top .nav{display:none}body[data-family] .top .langs{margin-left:auto}body[data-family] .top .brand{font-size:15px}}
-:root[data-theme=light] body[data-family=video-drift] .hero h1 em{background-image:linear-gradient(90deg,#087d70,#2464b8,#7043bb)}
-@media(prefers-color-scheme:light){:root:not([data-theme=dark]) body[data-family=video-drift] .hero h1 em{background-image:linear-gradient(90deg,#087d70,#2464b8,#7043bb)}}
+
+
 
 /* Shared scroll reveal: same distance, timing and stagger on every site. */
 .family-reveal-pending{opacity:0;transform:translateY(18px)}
