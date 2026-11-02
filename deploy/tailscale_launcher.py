@@ -12,11 +12,11 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from homebot.services.launcher import public_urls  # noqa: E402
 from homebot.services.launcher_tailscale import BASE_PORT, plan  # noqa: E402
 from homebot.services.tiles import CONNECTOR_BY_SERVICE  # noqa: E402
 
@@ -34,6 +34,16 @@ def read_env(path: Path) -> tuple[list[str], dict[str, str]]:
 def dns_name() -> str:
     result = subprocess.run(["tailscale", "status", "--json"], check=True, capture_output=True, text=True)
     return str(json.loads(result.stdout).get("Self", {}).get("DNSName", "")).rstrip(".")
+
+
+def existing_urls(value: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for item in value.replace("\n", ",").split(","):
+        service, sep, url = item.strip().partition("=")
+        parts = urlsplit(url.strip())
+        if sep and service and parts.scheme in {"http", "https"} and parts.hostname:
+            out[service] = url.strip().rstrip("/")
+    return out
 
 
 def update_env(path: Path, lines: list[str], value: str) -> None:
@@ -77,7 +87,7 @@ def main() -> int:
     if not args.apply:
         print("\nПроверка без изменений. Для применения повторите с --apply.")
         return 0
-    configured = public_urls(values.get("LAUNCHER_URLS", ""))
+    configured = existing_urls(values.get("LAUNCHER_URLS", ""))
     for item in exposures:
         subprocess.run(["tailscale", "serve", "--bg", f"--https={item.listen_port}", item.target], check=True)
         configured[item.service] = item.public_url
