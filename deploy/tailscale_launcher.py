@@ -62,7 +62,8 @@ def main() -> int:
     services = args.services
     if not services:
         services = [
-            c.service for c in CONNECTOR_BY_SERVICE.values()
+            c.service
+            for c in CONNECTOR_BY_SERVICE.values()
             if c.url_field and c.fields and all(values.get(f.name.upper(), "") for f in c.fields)
         ]
     if not services:
@@ -78,9 +79,7 @@ def main() -> int:
         return 0
     configured = public_urls(values.get("LAUNCHER_URLS", ""))
     for item in exposures:
-        subprocess.run(
-            ["tailscale", "serve", "--bg", f"--https={item.listen_port}", item.target], check=True
-        )
+        subprocess.run(["tailscale", "serve", "--bg", f"--https={item.listen_port}", item.target], check=True)
         configured[item.service] = item.public_url
     update_env(args.env, lines, ",".join(f"{key}={url}" for key, url in sorted(configured.items())))
     print(f"\nГотово. Перезапустите homebot; настройки записаны в {args.env}.")

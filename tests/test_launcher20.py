@@ -24,10 +24,23 @@ def test_public_urls():
 
 
 def test_apps_only_connected():
-    s = Settings(_env_file=None, bot_token="1:x", admin_id=1, radarr_url="http://127.0.0.1:7878", launcher_urls="radarr=https://srv.ts.net:18443")  # type: ignore[call-arg]
+    s = Settings(
+        _env_file=None,
+        bot_token="1:x",
+        admin_id=1,
+        radarr_url="http://127.0.0.1:7878",
+        launcher_urls="radarr=https://srv.ts.net:18443",
+    )  # type: ignore[call-arg]
     items = launcher.apps(s, {"radarr"})
     assert items == [
-        {"id": "radarr", "title": "Radarr", "icon": "🎬", "url": "https://srv.ts.net:18443", "probe": "http://127.0.0.1:7878", "available": True}
+        {
+            "id": "radarr",
+            "title": "Radarr",
+            "icon": "🎬",
+            "url": "https://srv.ts.net:18443",
+            "probe": "http://127.0.0.1:7878",
+            "available": True,
+        }
     ]
 
 
