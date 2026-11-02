@@ -3,9 +3,9 @@
 С 6.4 у плиток есть точка «онлайн/офлайн» (проверка раз в минуту), свои ссылки раскладываются по группам
 и переставляются (поле `group` и порядок в списке).
 
-Адреса приложений в настройках обычно внутренние (http://127.0.0.1:порт) — с телефона они не откроются. Если панель
-открыта по адресу Tailscale (WEB_URL), 127.0.0.1/localhost заменяется на имя сервера из WEB_URL: так приложение
-открывается через Tailscale. Свои ссылки хранятся в state.json (ключ `launcher_links`).
+Адрес интеграции и адрес для браузера — разные вещи. Внутренний URL может быть loopback/Docker-именем, а клиентский
+URL задаётся через LAUNCHER_URLS. Простая подмена localhost на имя сервера некорректна: на исходном порту может не
+быть HTTPS-прокси. Свои ссылки хранятся в state.json (ключ `launcher_links`).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import asyncio
 import re
 import time
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 from homebot.config import Settings
 from homebot.services.tiles import CONNECTORS
@@ -27,20 +27,31 @@ ICONS = {
 }  # fmt: skip
 _LOCAL = {"127.0.0.1", "localhost", "0.0.0.0", "::1"}
 _URL_RE = re.compile(r"^https?://[^\s/$.?#][^\s]*$", re.IGNORECASE)
+_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 
 
-def reachable(url: str, web_url: str) -> str:
-    """Внутренний адрес → адрес через имя сервера из WEB_URL (если WEB_URL задан)."""
+def public_urls(value: str) -> dict[str, str]:
+    """Разобрать `service=https://…` из LAUNCHER_URLS; неверные элементы пропустить."""
+    out: dict[str, str] = {}
+    for item in re.split(r"[,\n]+", value):
+        service, sep, url = item.strip().partition("=")
+        url = url.strip().rstrip("/")
+        if sep and _ID_RE.fullmatch(service) and _URL_RE.fullmatch(url):
+            out[service] = url
+    return out
+
+
+def reachable(url: str, public_url: str = "") -> str:
+    """Вернуть реально доступный браузеру URL; loopback без явного прокси не выдавать."""
+    if public_url:
+        return public_url
     parts = urlsplit(url)
-    host = urlsplit(web_url).hostname if web_url else None
-    if not host or (parts.hostname or "") not in _LOCAL:
-        return url
-    netloc = host + (f":{parts.port}" if parts.port else "")
-    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    return "" if (parts.hostname or "").lower() in _LOCAL else url
 
 
 def apps(settings: Settings, connected: set[str]) -> list[dict[str, Any]]:
     out = []
+    exposed = public_urls(settings.launcher_urls)
     for c in CONNECTORS:
         if c.service not in connected or not c.url_field:
             continue
@@ -51,8 +62,9 @@ def apps(settings: Settings, connected: set[str]) -> list[dict[str, Any]]:
                     "id": c.service,
                     "title": c.title,
                     "icon": ICONS.get(c.service, "🧩"),
-                    "url": reachable(url, settings.web_url),
+                    "url": reachable(url, exposed.get(c.service, "")),
                     "probe": url,
+                    "available": bool(reachable(url, exposed.get(c.service, ""))),
                 }
             )
     return out

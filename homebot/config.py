@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     update_repo: str = "vkardin/uni-homebot"
     # 🔏 Ставить из чата только архивы с подписью автора (ключи — homebot/release_keys.txt)
     update_require_signature: bool = False
+    # Публичные для клиента адреса домашних приложений. Внутренние URL интеграций
+    # остаются отдельными: бот обращается к ним локально, а браузер — по этим URL.
+    # Формат: radarr=https://host:18443,jellyfin=https://host:18445
+    launcher_urls: str = ""
     # 🌍 Каталог сообщества (шаблоны приложений для доски); пусто — только встроенный
     community_catalog_url: str = "https://raw.githubusercontent.com/vkardin/uni-homebot/main/catalog/apps.json"
 

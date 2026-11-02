@@ -555,7 +555,7 @@ async function launcherBoard() {
   let alive = {};
   const dot = (key) => (key in alive && alive[key] != null ? h("span", { class: "live " + (alive[key] ? "on" : "off"), title: alive[key] ? "онлайн" : "не отвечает" }) : null);
   const draw = (st) => {
-    const app = (x, key, extra) => h("button", { class: "app", onclick: () => openLink(x.url), ...extra }, h("span", { class: "ai" }, x.icon, dot(key)), h("span", { class: "at" }, x.title));
+    const app = (x, key, extra) => h("button", { class: "app" + (x.available === false ? " unavailable" : ""), disabled: x.available === false, title: x.available === false ? T("Настройте безопасный адрес приложения") : undefined, onclick: x.url ? () => openLink(x.url) : null, ...extra }, h("span", { class: "ai" }, x.icon, dot(key)), h("span", { class: "at" }, x.title));
     const link = (x) => { const b = app(x, x.url, { title: x.url }); let t; b.addEventListener("pointerdown", () => { t = setTimeout(() => linkMenu(x, st, draw), 650); });
       ["pointerup", "pointerleave"].forEach((e) => b.addEventListener(e, () => clearTimeout(t))); return b; };
     const add = h("button", { class: "app add", onclick: () => addLink(draw, st) }, h("span", { class: "ai" }, "＋"), h("span", { class: "at" }, T("Ссылка")));
@@ -639,7 +639,7 @@ async function viewHome(root) {
 
 
 // ---------------------------------------------------------------- ⚙️ НАСТРОЙКИ
-const openLink = (u) => { if (!/^https?:\/\//.test(u || "")) return; try { if (tg && tg.openLink) tg.openLink(u, { try_instant_view: true }); else window.open(u, "_blank", "noopener"); } catch (e) { window.open(u, "_blank", "noopener"); } };
+const openLink = (u) => { if (!/^https?:\/\//.test(u || "")) return; try { if (tg && tg.openLink) tg.openLink(u); else window.open(u, "_blank", "noopener"); } catch (e) { window.open(u, "_blank", "noopener"); } };
 function sw(on, fn) {
   const b = h("button", { class: "sw" + (on ? " on" : ""), role: "switch", "aria-checked": String(!!on) });
   b.addEventListener("click", async () => {

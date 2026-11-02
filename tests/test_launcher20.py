@@ -10,18 +10,24 @@ from homebot.services.state import StateStore
 
 
 def test_reachable():
-    web = "https://server.tail1234.ts.net"
-    assert launcher.reachable("http://127.0.0.1:7878", web) == "http://server.tail1234.ts.net:7878"
-    assert launcher.reachable("http://localhost:8096/web", web) == "http://server.tail1234.ts.net:8096/web"
-    assert launcher.reachable("http://192.168.1.5:8080", web) == "http://192.168.1.5:8080"
-    assert launcher.reachable("http://127.0.0.1:7878", "") == "http://127.0.0.1:7878"
+    assert launcher.reachable("http://127.0.0.1:7878") == ""
+    assert launcher.reachable("http://localhost:8096/web") == ""
+    assert launcher.reachable("http://192.168.1.5:8080") == "http://192.168.1.5:8080"
+    assert launcher.reachable("http://127.0.0.1:7878", "https://radarr.tail.ts.net") == "https://radarr.tail.ts.net"
+
+
+def test_public_urls():
+    assert launcher.public_urls("radarr=https://srv.ts.net:18443, bad, jellyfin=http://media.lan:8096/") == {
+        "radarr": "https://srv.ts.net:18443",
+        "jellyfin": "http://media.lan:8096",
+    }
 
 
 def test_apps_only_connected():
-    s = Settings(_env_file=None, bot_token="1:x", admin_id=1, radarr_url="http://127.0.0.1:7878", web_url="https://srv.ts.net")  # type: ignore[call-arg]
+    s = Settings(_env_file=None, bot_token="1:x", admin_id=1, radarr_url="http://127.0.0.1:7878", launcher_urls="radarr=https://srv.ts.net:18443")  # type: ignore[call-arg]
     items = launcher.apps(s, {"radarr"})
     assert items == [
-        {"id": "radarr", "title": "Radarr", "icon": "🎬", "url": "http://srv.ts.net:7878", "probe": "http://127.0.0.1:7878"}
+        {"id": "radarr", "title": "Radarr", "icon": "🎬", "url": "https://srv.ts.net:18443", "probe": "http://127.0.0.1:7878", "available": True}
     ]
 
 
