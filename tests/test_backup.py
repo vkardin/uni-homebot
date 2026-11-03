@@ -31,13 +31,14 @@ def test_backup_roundtrip_keeps_extra_and_skips_env():
             (Path(extra_dir) / "compose.yml").write_text("services: {}")
             (Path(extra_dir) / ".env").write_text(
                 "TOKEN=1"
-            )  # попадёт, только если указан путь: проверим, что бэкап берёт лишь заданное
+            )
+            (Path(extra_dir) / ".env.production").write_text("TOKEN=2")
             await db.add_note(1, "важная заметка")
             await store.set("k", {"a": 1})
-            item = await svc.create_backup(state_dir, db, keep=7, extra=[Path(extra_dir) / "compose.yml"], tz=TZ)
+            item = await svc.create_backup(state_dir, db, keep=7, extra=[Path(extra_dir)], tz=TZ)
             names = tarfile.open(item.path).getnames()
             assert svc.DB_NAME in names and svc.STATE_NAME in names
-            assert any(n.endswith("compose.yml") for n in names) and not any(n.endswith(".env") for n in names)
+            assert any(n.endswith("compose.yml") for n in names) and not any(Path(n).name.startswith(".env") for n in names)
             await db.delete_note((await db.list_notes())[0].id)
             await store.set("k", {"a": 2})
             done = await svc.restore_backup(item.path, state_dir, db, store)
