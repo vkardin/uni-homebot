@@ -29,9 +29,7 @@ def test_backup_roundtrip_keeps_extra_and_skips_env():
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as extra_dir:
             state_dir, db, store = _env(tmp)
             (Path(extra_dir) / "compose.yml").write_text("services: {}")
-            (Path(extra_dir) / ".env").write_text(
-                "TOKEN=1"
-            )
+            (Path(extra_dir) / ".env").write_text("TOKEN=1")
             (Path(extra_dir) / ".env.production").write_text("TOKEN=2")
             await db.add_note(1, "важная заметка")
             await store.set("k", {"a": 1})
