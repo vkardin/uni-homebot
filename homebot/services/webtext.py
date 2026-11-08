@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import re
 from html.parser import HTMLParser
+from urllib.parse import urljoin
 
 import aiohttp
 
@@ -125,23 +126,38 @@ def document_to_text(data: bytes, filename: str, mime: str | None) -> str:
     raise WebTextError("поддерживаются PDF и текстовые файлы")
 
 
-async def fetch_text(session: aiohttp.ClientSession, url: str) -> tuple[str | None, str]:
+async def fetch_text(session: aiohttp.ClientSession, url: str, *, public_only: bool = False) -> tuple[str | None, str]:
     """(заголовок, текст) страницы или PDF по ссылке."""
     try:
-        async with session.get(
-            url,
-            timeout=aiohttp.ClientTimeout(total=25),
-            headers={"Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.5"},
-        ) as resp:
-            if resp.status >= 400:
-                raise WebTextError(f"сайт ответил HTTP {resp.status}")
-            content_type = (resp.headers.get("Content-Type") or "").lower()
-            buffer = bytearray()
-            async for chunk in resp.content.iter_chunked(64 * 1024):
-                buffer += chunk
-                if len(buffer) > MAX_DOWNLOAD:
-                    raise WebTextError("страница слишком большая")
-            charset = resp.charset or "utf-8"
+        for redirect in range(6):
+            if public_only:
+                from homebot.services.urlguard import public_http_url
+
+                try:
+                    url = await public_http_url(url)
+                except ValueError as exc:
+                    raise WebTextError(str(exc)) from exc
+            async with session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=25),
+                headers={"Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.5"},
+                allow_redirects=not public_only,
+            ) as resp:
+                if public_only and resp.status in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
+                    if redirect == 5:
+                        raise WebTextError("слишком много перенаправлений")
+                    url = urljoin(url, resp.headers["Location"])
+                    continue
+                if resp.status >= 400:
+                    raise WebTextError(f"сайт ответил HTTP {resp.status}")
+                content_type = (resp.headers.get("Content-Type") or "").lower()
+                buffer = bytearray()
+                async for chunk in resp.content.iter_chunked(64 * 1024):
+                    buffer += chunk
+                    if len(buffer) > MAX_DOWNLOAD:
+                        raise WebTextError("страница слишком большая")
+                charset = resp.charset or "utf-8"
+                break
     except (aiohttp.ClientError, TimeoutError) as exc:
         raise WebTextError(f"не удалось открыть ссылку ({type(exc).__name__})") from exc
 

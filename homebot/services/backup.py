@@ -1,7 +1,7 @@
 """💾 Бэкап: база SQLite + состояние (state.json) + выбранные файлы/папки (например, compose-файлы Docker).
 
 Архив `homebot-YYYYmmdd-HHMMSS.tar.gz` лежит в `<STATE_DIR>/backups/`, хранится последние N штук.
-`.env` в бэкап не попадает (там токены). Восстанавливаются база и состояние; дополнительные файлы лежат в архиве
+`.env` и `.env.*` в бэкап не попадают (там токены). Восстанавливаются база и состояние; дополнительные файлы лежат в архиве
 в папке `extra/` — их вы достаёте руками, бот чужие конфиги не перезаписывает.
 """
 
@@ -77,6 +77,8 @@ def _add_extra(tar: tarfile.TarFile, paths: list[Path]) -> int:
         for file in files:
             try:
                 size = file.stat().st_size
+                if file.name == ".env" or file.name.startswith(".env."):
+                    continue
                 if file.is_symlink() or size > MAX_EXTRA_FILE or total + size > MAX_EXTRA_TOTAL:
                     continue
                 tar.add(file, arcname=f"extra/{str(file.resolve()).lstrip('/')}", recursive=False)
