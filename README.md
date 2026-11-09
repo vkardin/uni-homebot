@@ -857,6 +857,8 @@ ruff check .
 | **[Leveler](https://vkardin.github.io/leveler/)** | Ровная громкость, разборчивые диалоги, эквалайзер и управление скоростью. [GitHub](https://github.com/vkardin/leveler) |
 | **[Video Drift](https://vkardin.github.io/video-drift/)** | Видео поверх других окон, субтитры, сохранение позиции и заметки к моментам. [GitHub](https://github.com/vkardin/video-drift) |
 | **[Snapt](https://vkardin.github.io/snapt/)** | Скриншоты, стрелки и подписи. Приложение для Windows, macOS и Linux и расширение браузера. [GitHub](https://github.com/vkardin/snapt) |
+| **[Коли Є](https://vkardin.github.io/koly/)** | Power outage schedules for every region of Ukraine: status now, a countdown, today and tomorrow. Windows widget. [GitHub](https://github.com/vkardin/koly) |
+| **[Tukk](https://vkardin.github.io/tukk/)** | Phone gestures for everyday actions: shake for the flashlight, flip for silence. Android, in development. [GitHub](https://github.com/vkardin/tukk) |
 
 [github.com/vkardin](https://github.com/vkardin) · Независимые инструменты · открытый код
 <!-- project-family:end -->
