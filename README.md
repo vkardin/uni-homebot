@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-10.0.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-10.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-10.0.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-10.1.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,14 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🛡 Облачный сторож (10.1)
+
+Сообщение «🔌 Дом не на связи» приходит, даже когда сервер выключен: маленький Сторож на Cloudflare Workers
+(бесплатно) ждёт от бота сигнал раз в минуту и пишет через своего бота, если сигналы пропали, а потом сообщает,
+сколько не было связи и что пропадало, свет или интернет. У него есть `/status` и `/history` (отключения за 30 дней).
+В облако уходит только сводка CPU, памяти, диска и аптайма. Включается двумя строками `WATCHDOG_URL` и
+`WATCHDOG_TOKEN` в `.env`, установка — [extras/watchdog/README.md](extras/watchdog/README.md).
 
 ### 🧩 Внешние модули и платформа (10.0)
 

@@ -406,6 +406,29 @@ def _register_jobs(
             kernel_job.run,
             default_enabled=True,
         )
+    _register_watchdog(tasks, settings, http)
+
+
+def _register_watchdog(tasks: TaskManager, settings: Settings, http: Any) -> bool:
+    """🛡 Сигнал для облачного Сторожа: только если заданы WATCHDOG_URL и WATCHDOG_TOKEN (от 16 символов)."""
+    token = settings.watchdog_token.get_secret_value() if settings.watchdog_token else ""
+    if not settings.watchdog_url:
+        return False
+    if len(token) < 16:
+        log.warning("WATCHDOG_URL is set, but WATCHDOG_TOKEN is empty or shorter than 16 characters: watchdog is off")
+        return False
+    from homebot.jobs.heartbeat import HeartbeatJob
+
+    beat = HeartbeatJob(http=http, url=settings.watchdog_url, token=token, timezone=settings.timezone,
+                        interval=settings.watchdog_interval_sec)  # fmt: skip
+    tasks.register(
+        "watchdog",
+        "Облачный сторож",
+        "🛡 Раз в минуту сообщает Сторожу в облаке, что сервер на связи. Пропал свет — напишет Сторож",
+        beat.run,
+        default_enabled=True,
+    )
+    return True
 
 
 KEY_DEFAULTS_PROFILE = "defaults_profile"

@@ -1,0 +1,16 @@
+# 🛡 Сторож UNI для Cloudflare Workers (бесплатный тариф). Развёртывание: см. README.md рядом.
+name = "uni-watchdog"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+[vars]
+# Минуты тишины до оповещения. Часовой пояс берётся у домашнего бота; задать явно: TZ = "Europe/Kyiv"
+TIMEOUT_MIN = "3"
+
+[[durable_objects.bindings]]
+name = "WATCHDOG"
+class_name = "Watchdog"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Watchdog"]

@@ -22,6 +22,7 @@ jobs:
       - run: ruff format --check .
       - run: pytest -q
       - run: node --check homebot/web/static/app.js
+      - run: node --test extras/watchdog/*.test.mjs
 
   # Установщик знает не только apt: проверяем, что имена пакетов есть в других дистрибутивах.
   packages:
