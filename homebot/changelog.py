@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 WHATS_NEW: dict[str, tuple[str, ...]] = {
+    "10.1.0": (
+        "🛡 Облачный сторож: пропал свет или интернет — сообщение придёт, даже когда сервер выключен",
+        "☁️ Бесплатно на Cloudflare, свой бот со /status и /history. Установка: extras/watchdog/README.md",
+        "✅ Ваши данные не менялись: без WATCHDOG_URL в .env ничего не включается",
+    ),
     "10.0.0": (
         "🧩 UNI 10.0: внешние модули — свои команды и задачи папкой в STATE_DIR/modules (панель: Ещё → Модули, /modules)",
         "💬 Всё из панели есть и в чате: /rules, /servers, /home, /catalog",

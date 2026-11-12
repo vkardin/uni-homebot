@@ -183,6 +183,13 @@ class Settings(BaseSettings):
     speedtest_weekly_report: bool = True  # воскресный отчёт с графиком
     kernel_watch_enabled: bool = True  # ошибки диска/памяти в журнале ядра
 
+    # --- 🛡 Облачный сторож (10.1) ------------------------------------------------------
+    # Адрес Сторожа на Cloudflare Workers (extras/watchdog). Пусто — выключено. Бот раз в N секунд сообщает «я жив»;
+    # если сигналы пропали (нет света или интернета), Сторож пишет вам через своего бота.
+    watchdog_url: str = ""
+    watchdog_token: SecretStr | None = None  # тот же HEARTBEAT_TOKEN, что в секретах Сторожа (от 16 символов)
+    watchdog_interval_sec: int = Field(60, ge=20, le=600)
+
     # --- Игры и погода (2.6) ------------------------------------------------------------
     games_enabled: bool = True
     games_country: str = "US"  # регион магазина Epic (влияет на список и цены)
@@ -299,6 +306,7 @@ class Settings(BaseSettings):
         "changedetection_url",
         "libretranslate_url",
         "hass_url",
+        "watchdog_url",
     )
     @classmethod
     def _check_app_url(cls, value: str) -> str:
