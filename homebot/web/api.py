@@ -64,6 +64,10 @@ class Ctx:
     http: Any = None  # aiohttp.ClientSession: собрать заново сервисы включённого модуля
     inbox: Any = None  # Inbox: 🔔 центр уведомлений
     repair: Any = None  # Repair: 🛠 ремонт сервера по PIN
+    bot: Any = None  # aiogram Bot: самопроверка (связь с Telegram)
+    ssh_log: Any = None  # SshLog: входы по SSH
+    updates: Any = None  # UpdatesService: обновления пакетов
+    smart: Any = None  # SmartService: здоровье дисков
 
 
 class ApiError(Exception):
@@ -90,6 +94,16 @@ def _need(value: Any, name: str) -> Any:
     if value is None or value == "":
         raise ApiError(f"не хватает поля {name}")
     return value
+
+
+def _int(value: Any, name: str, default: int = 0) -> int:
+    """Число из запроса; мусор — понятная ошибка 400, а не «внутренняя ошибка»."""
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ApiError(f"{name}: нужно целое число") from exc
 
 
 def _service(value: Any, title: str) -> Any:
@@ -330,7 +344,7 @@ async def logs(request: web.Request) -> Any:
         return {"units": list(c.logs.units)}
     if unit not in c.logs.units:
         raise ApiError("неизвестная служба", 404)
-    lines = min(max(int(request.query.get("lines", "60") or 60), 10), 300)
+    lines = min(max(_int(request.query.get("lines"), "lines", 60), 10), 300)
     text, error = await c.logs.tail(unit, lines)
     return {"units": list(c.logs.units), "text": text, "error": error}
 
@@ -406,7 +420,7 @@ async def qbit_magnet(request: web.Request) -> Any:
 async def adguard_protection(request: web.Request) -> Any:
     a = _service(_ctx(request).apps.adguard, "AdGuard")
     data = await _json(request)
-    await a.set_protection(bool(data.get("enabled")), minutes=int(data.get("minutes") or 0))
+    await a.set_protection(bool(data.get("enabled")), minutes=_int(data.get("minutes"), "minutes"))
     return {"ok": True}
 
 
@@ -487,7 +501,7 @@ async def site_action(request: web.Request) -> Any:
     elif action == "pause":
         await service.set_paused(uuid, bool(data.get("paused", True)))
     elif action == "interval":
-        await service.set_interval(uuid, int(data.get("minutes") or 0))
+        await service.set_interval(uuid, _int(data.get("minutes"), "minutes"))
     elif action == "browser":
         await service.set_browser(uuid, bool(data.get("on")))
         await service.recheck(uuid)
@@ -546,7 +560,7 @@ async def _none() -> list[Any]:
 async def movies_add(request: web.Request) -> Any:
     a = _ctx(request).apps
     data = await _json(request)
-    ident = int(_need(data.get("id"), "id"))
+    ident = _int(_need(data.get("id"), "id"), "id")
     if data.get("kind") == "show":
         sonarr = _service(a.sonarr, "Sonarr")
         show = await sonarr.add(ident)
@@ -711,7 +725,7 @@ async def reminders_add(request: web.Request) -> Any:
 
 @routes.delete("/api/reminders/{id}")
 async def reminders_delete(request: web.Request) -> Any:
-    return {"ok": await _ctx(request).db.delete_reminder(int(request.match_info["id"]), owner=_owner(request))}
+    return {"ok": await _ctx(request).db.delete_reminder(_int(request.match_info["id"], "id"), owner=_owner(request))}
 
 
 @routes.get("/api/notes")
@@ -731,7 +745,7 @@ async def notes_add(request: web.Request) -> Any:
 
 @routes.delete("/api/notes/{id}")
 async def notes_delete(request: web.Request) -> Any:
-    return {"ok": await _ctx(request).db.delete_note(int(request.match_info["id"]), owner=_owner(request))}
+    return {"ok": await _ctx(request).db.delete_note(_int(request.match_info["id"], "id"), owner=_owner(request))}
 
 
 # ======================================================================= НАСТРОЙКИ
@@ -923,7 +937,7 @@ async def launcher_post(request: web.Request) -> Any:
     elif op == "remove":
         items = [x for x in items if x.get("url") != body.get("url")]
     elif op == "move":
-        items = launcher.move(items, str(body.get("url", "")), -1 if int(body.get("step", 1)) < 0 else 1)
+        items = launcher.move(items, str(body.get("url", "")), -1 if _int(body.get("step"), "step", 1) < 0 else 1)
     elif op == "group":
         items = launcher.regroup(items, str(body.get("url", "")), str(body.get("group", "")))
     else:
@@ -1101,7 +1115,7 @@ async def people_post(request: web.Request) -> Any:
     if c.access is None:
         raise ApiError("доступ для других выключен (GUESTS_ENABLED=false)", 403)
     body = await _json(request)
-    uid, op = int(body.get("id") or 0), body.get("op")
+    uid, op = _int(body.get("id"), "id"), body.get("op")
     if op == "approve":
         done = await c.access.set_status(uid, APPROVED)
     elif op == "block":
@@ -1282,6 +1296,108 @@ async def index(request: web.Request) -> web.StreamResponse:
     # Версия в адресах стилей и скрипта: после обновления Telegram не покажет старые файлы из кэша
     html = (STATIC / "index.html").read_text(encoding="utf-8").replace("__V__", __version__)
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
+
+
+# ---------------------------------------------------------------- 🛡 управление сервером (10.2): всё, что умеет чат
+@routes.get("/api/control/security")
+async def control_security(request: web.Request) -> Any:
+    c = _ctx(request)
+    if c.ssh_log is None or c.updates is None:
+        raise ApiError("журналы и пакеты сервера недоступны", 404)
+    (logins, logins_error), (failed, failed_error), info = await asyncio.gather(
+        c.ssh_log.recent_logins(10), c.ssh_log.failed_count(), c.updates.check()
+    )
+    smart = c.smart.read() if c.smart is not None else None
+    return {"logins": logins, "logins_error": logins_error, "failed": failed, "failed_error": failed_error,
+            "updates": info, "smart": smart}  # fmt: skip
+
+
+@routes.get("/api/control/network")
+async def control_network(request: web.Request) -> Any:
+    from homebot.services.network import TailscaleError
+
+    c = _ctx(request)
+
+    async def tailnet() -> tuple[Any, str | None]:
+        try:
+            return await c.network.tailscale(), None
+        except TailscaleError as exc:
+            return None, str(exc)
+
+    (status, error), ip, (rx, tx, total_rx, total_tx) = await asyncio.gather(
+        tailnet(), c.network.external_ip(), c.network.throughput()
+    )
+    return {"tailnet": status, "tailnet_error": error, "ip": ip, "rx": rx, "tx": tx, "total_rx": total_rx, "total_tx": total_tx}
+
+
+@routes.get("/api/control/doctor")
+async def control_doctor(request: web.Request) -> Any:
+    from homebot.handlers.doctor import build_report
+
+    c = _ctx(request)
+    if c.bot is None:
+        raise ApiError("самопроверка недоступна", 404)
+    report = await build_report(c.bot, c.settings, c.apps, c.prefs, c.ollama, c.smart, c.news, c.store, c.converter, c.tasks)
+    return {**plain(report), "problems": report.problems, "broken": len(c.tasks.broken())}
+
+
+@routes.post("/api/control/repair-tasks")
+async def control_repair_tasks(request: web.Request) -> Any:
+    return {"restarted": _ctx(request).tasks.repair()}
+
+
+@routes.get("/api/control/update")
+async def control_update(request: web.Request) -> Any:
+    from homebot.services import update_flow
+
+    c = _ctx(request)
+    data = update_flow.status(c.settings.state_dir)
+    data["container"] = bool(c.settings.homebot_in_container)
+    if request.query.get("check") and c.http is not None:
+        try:
+            rel = await update_flow.latest(c.http, c.settings.update_repo, c.settings.update_channel)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+            data["check_error"] = str(exc) or type(exc).__name__
+        else:
+            data["latest"] = rel.version if rel else None
+            data["latest_page"] = rel.page if rel else None
+    return data
+
+
+@routes.post("/api/control/update")
+async def control_update_post(request: web.Request) -> Any:
+    from homebot.services import selfupdate, update_flow
+
+    c = _ctx(request)
+    data = await _json(request)
+    op = data.get("op")
+    state_dir = c.settings.state_dir
+    if data.get("confirm") is not True:
+        raise ApiError("нужно confirm=true")
+    if not selfupdate.updater_installed():
+        raise ApiError("обновлятор не установлен: один раз запустите deploy/update.sh на сервере", 409)
+    if selfupdate.request_pending(state_dir):
+        raise ApiError("обновление уже запущено", 409)
+    if op == "rollback":
+        if selfupdate.previous_version() is None:
+            raise ApiError("прежней версии нет", 404)
+        selfupdate.write_request(state_dir, "rollback")
+        return {"ok": True, "message": "Откатываю — бот перезапустится и напишет о результате"}
+    if op != "install":
+        raise ApiError("op: install или rollback")
+    version = str(_need(data.get("version"), "version"))
+    if c.http is None:
+        raise ApiError("нет HTTP-клиента", 503)
+    try:
+        info = await update_flow.download(c.http, c.settings.update_repo, version, state_dir)
+    except (aiohttp.ClientError, TimeoutError, ValueError, OSError, selfupdate.ArchiveError) as exc:
+        raise ApiError(f"не получилось скачать: {exc}", 502) from exc
+    problem = update_flow.blocker(info, selfupdate.archive_path(state_dir), c.settings.update_require_signature)
+    if problem:
+        raise ApiError(problem, 409)
+    await update_flow.backup_before(c.settings, c.store, c.db)
+    selfupdate.write_request(state_dir, "install", info)
+    return {"ok": True, "message": f"Ставлю v{info.version} — бот перезапустится и напишет о результате", "whats_new": info.whats_new}
 
 
 def build_app(ctx: Ctx) -> web.Application:

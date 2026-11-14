@@ -15,7 +15,7 @@ from homebot.services import backup as backup_svc
 from homebot.services import selfupdate
 from homebot.services.apps import Apps
 from homebot.services.convert import Converter, describe_caps, install_hint
-from homebot.services.doctor import FAIL, OFF, OK, WARN, Check, collect, guard, guard_many, ollama_check
+from homebot.services.doctor import FAIL, OFF, OK, WARN, Check, Report, collect, guard, guard_many, ollama_check
 from homebot.services.kernel_log import read_kernel_log
 from homebot.services.news import NewsService
 from homebot.services.prefs import Prefs
@@ -147,7 +147,7 @@ async def _tasks(tasks: TaskManager) -> Check:
     return Check(FAIL, "Фоновые задачи", f"остановлены после падений: {names}. Нажмите «🔧 Починить»")
 
 
-async def _build_report(
+async def build_report(
     bot: Bot,
     settings: Settings,
     apps: Apps,
@@ -158,7 +158,8 @@ async def _build_report(
     store: StateStore,
     converter: Converter,
     tasks: TaskManager,
-) -> str:
+) -> Report:
+    """Самопроверка как данные: её показывают и чат (текстом), и панель (карточками)."""
     checks: list[Any] = [
         guard("Фоновые задачи", _tasks(tasks)),
         guard("Telegram", _telegram(bot)),
@@ -198,8 +199,11 @@ async def _build_report(
             off.append(name)
         else:
             checks.append(guard(name, factory()))
-    report = await collect(checks, list(prefs.news().feeds), news.fetch_feed, off)
-    return render_doctor(report, __version__)
+    return await collect(checks, list(prefs.news().feeds), news.fetch_feed, off)
+
+
+async def _build_report(*args: Any) -> str:
+    return render_doctor(await build_report(*args), __version__)
 
 
 @router.message(Command("doctor", "check"))

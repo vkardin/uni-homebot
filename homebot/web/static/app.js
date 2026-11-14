@@ -23,6 +23,7 @@ function h(tag, attrs, ...kids) {
   return el;
 }
 const ICONS = {
+  shield: [["path", { d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" }], ["path", { d: "M9 12l2 2 4-4" }]],
   server: [["rect", { x: 3, y: 3, width: 18, height: 7, rx: 2 }], ["rect", { x: 3, y: 14, width: 18, height: 7, rx: 2 }], ["path", { d: "M7 6.5h.01M7 17.5h.01" }]],
   search: [["circle", { cx: 11, cy: 11, r: 7 }], ["path", { d: "M16.5 16.5L21 21" }]],
   film: [["rect", { x: 3, y: 4, width: 18, height: 16, rx: 2 }], ["path", { d: "M8 4v16M16 4v16M3 9h5M3 15h5M16 9h5M16 15h5" }]],
@@ -227,6 +228,7 @@ async function viewServer(root) {
     } catch (e) { histBox.replaceChildren(failure(e)); }
   }
   hist();
+  root.append(h("button", { class: "btn block", style: "margin:4px 0 12px", onclick: () => show("more/control") }, "🛡 Управление сервером: обновление, самопроверка, безопасность, сеть"));
   root.append(reportCard());
   root.append(
     has("docker") ? await dockerCard() : null, await appsCards(),
@@ -963,7 +965,91 @@ async function viewTools(root) {
   root.append(group("Что установлено", ...d.caps.map((c) => li(c.name, c.what, h("b", { class: c.ok ? "ok" : "dim" }, c.ok ? "есть" : "нет")))));
   if (d.hint) root.append(card("Как поставить недостающее", h("code", { class: "mono" }, d.hint), h("div", { class: "dim small" }, "Выполните на сервере, потом откройте /doctor в боте.")));
 }
+// 🛡 10.2: управление сервером — обновление UNI, самопроверка, безопасность, сеть (всё, что умеет чат)
+const DOC_DOT = { ok: "ok", warn: "warn", fail: "bad", off: "warn" };
+async function viewControl(root) {
+  const upd = h("div"), doc = h("div");
+  root.append(upd, doc);
+  async function drawUpdate(check) {
+    let u;
+    try { u = await get("/api/control/update" + (check ? "?check=1" : "")); } catch (e) { upd.replaceChildren(failure(e)); return; }
+    const res = u.result;
+    const install = (v) => act(async () => {
+      if (!(await confirmAsk(`Установить UNI v${v}? Перед установкой я сделаю бэкап, бот перезапустится.`))) return;
+      const r = await post("/api/control/update", { op: "install", version: v, confirm: true }); toast(r.message); drawUpdate(false);
+    });
+    const rollback = act(async () => {
+      if (!(await confirmAsk(`Вернуть прежнюю версию v${u.previous}?`))) return;
+      const r = await post("/api/control/update", { op: "rollback", confirm: true }); toast(r.message); drawUpdate(false);
+    });
+    upd.replaceChildren(card("Обновление UNI",
+      row("Сейчас стоит v" + u.version, u.pending ? "⏳ обновление идёт — бот перезапустится сам" : res ? (res.ok ? `✅ последняя установка: v${res.to_version || ""}` : "❌ последняя установка не удалась: " + (res.message || res.stage || "")) : null),
+      u.container ? h("div", { class: "dim small" }, "UNI работает в Docker: обновление — docker compose pull && docker compose up -d на сервере.")
+        : !u.ready ? h("div", { class: "dim small" }, "Обновлятор не установлен: один раз запустите deploy/update.sh на сервере.") : null,
+      u.check_error ? h("div", { class: "bad small" }, "Не проверилось: " + u.check_error) : null,
+      check && u.latest === null ? h("div", { class: "dim small" }, "Это самая свежая версия.") : null,
+      h("div", { class: "inline" },
+        h("button", { class: "btn", onclick: act(() => drawUpdate(true)) }, "Проверить обновления"),
+        u.latest && u.ready && !u.container ? h("button", { class: "btn primary", onclick: install(u.latest) }, "⬆️ Установить v" + u.latest) : null,
+        u.previous && u.ready && !u.container ? h("button", { class: "btn", onclick: rollback }, "↩️ Откатить на v" + u.previous) : null)));
+  }
+  async function runDoctor() {
+    doc.replaceChildren(card("Самопроверка", h("div", { class: "dim" }, "Проверяю всё подряд… обычно 5–20 секунд."), loading()));
+    try {
+      const d = await get("/api/control/doctor");
+      doc.replaceChildren(card("Самопроверка",
+        h("div", { class: d.problems ? "warn" : "ok" }, d.problems ? `Есть что поправить: ${d.problems}` : "Все системы в порядке", h("span", { class: "dim" }, ` · ${Math.round(d.took)} с`)),
+        ...d.checks.map((c) => row([h("span", { class: "dot " + (DOC_DOT[c.status] || "warn") }), " ", c.name], c.detail)),
+        d.feeds.length ? row("Источники новостей", `${d.feeds.filter((f) => !f.error).length} из ${d.feeds.length} отвечают`) : null,
+        d.off.length ? h("div", { class: "dim small" }, "Не подключено: " + d.off.join(", ")) : null,
+        h("div", { class: "inline" },
+          h("button", { class: "btn", onclick: act(runDoctor) }, "Проверить ещё раз"),
+          d.broken ? h("button", { class: "btn primary", onclick: act(async () => { const r = await post("/api/control/repair-tasks"); runDoctor(); return r; }, (r) => "Перезапущено задач: " + r.restarted) }, "🔧 Починить задачи") : null)));
+    } catch (e) { doc.replaceChildren(failure(e)); }
+  }
+  await drawUpdate(false);
+  doc.replaceChildren(card("Самопроверка", h("div", { class: "dim" }, "Telegram, фоновые задачи, приложения, диски, бэкап и источники новостей."),
+    h("button", { class: "btn primary block", onclick: act(runDoctor) }, "🩺 Проверить всё")));
+  const when = (t) => t ? new Date(t * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+  root.append(
+    fold("Безопасность", () => get("/api/control/security"), (d) => {
+      const up = d.updates || {}, disks = (d.smart && d.smart.disks) || [];
+      return {
+        sum: (d.failed ? `неудачных входов: ${d.failed}` : "без чужих входов") + (up.total ? ` · обновлений: ${up.total}` : ""),
+        body: [
+          row("Неудачные входы по SSH за сутки", d.failed_error || null, h("b", { class: d.failed > 20 ? "bad" : "" }, d.failed_error ? "—" : String(d.failed))),
+          h("div", { class: "t", style: "margin-top:8px" }, "Последние входы"),
+          d.logins_error ? h("div", { class: "bad small" }, d.logins_error) : !d.logins.length ? h("div", { class: "dim small" }, "За неделю входов не было.") : null,
+          ...d.logins.map((l) => row(`${l.user} · ${l.ip}`, `${when(l.when)} · ${l.method}`)),
+          h("div", { class: "t", style: "margin-top:8px" }, "Пакеты"),
+          up.error ? h("div", { class: "bad small" }, up.error)
+            : row(up.total ? `Доступно обновлений: ${up.total}` : "Всё обновлено", up.security ? `из них безопасности: ${up.security}` : null, up.reboot_required ? h("span", { class: "warn" }, "нужна перезагрузка") : null),
+          up.packages && up.packages.length ? h("div", { class: "dim small" }, up.packages.slice(0, 30).join(", ") + (up.packages.length > 30 ? "…" : "")) : null,
+          up.total ? h("div", { class: "dim small" }, "Поставить: sudo apt upgrade на сервере (из панели пакеты не ставятся — так безопаснее).") : null,
+          h("div", { class: "t", style: "margin-top:8px" }, "Диски (SMART)"),
+          !disks.length ? h("div", { class: "dim small" }, (d.smart && d.smart.error) || "Данных SMART пока нет.") : null,
+          ...disks.map((k) => row([h("span", { class: "dot " + (k.passed === false ? "bad" : "ok") }), " ", k.device + (k.model ? " · " + k.model : "")],
+            [k.temperature != null ? Math.round(k.temperature) + "°" : null, k.power_on_hours != null ? Math.round(k.power_on_hours / 24) + " дн. работы" : null, k.percentage_used != null ? "износ " + k.percentage_used + "%" : null].filter(Boolean).join(" · "))),
+        ],
+      };
+    }),
+    fold("Сеть", () => get("/api/control/network"), (d) => {
+      const t = d.tailnet;
+      return {
+        sum: d.ip || "",
+        body: [
+          row("Внешний IP", null, h("b", {}, d.ip || "—")),
+          row("Сейчас", `↓ ${fmtBytes(d.rx)}/с · ↑ ${fmtBytes(d.tx)}/с`, h("span", { class: "dim" }, `всего ↓ ${fmtBytes(d.total_rx)} · ↑ ${fmtBytes(d.total_tx)}`)),
+          h("div", { class: "t", style: "margin-top:8px" }, "Tailscale"),
+          d.tailnet_error ? h("div", { class: "dim small" }, d.tailnet_error) : null,
+          ...(t ? t.nodes || [] : []).map((n) => row([h("span", { class: "dot " + (n.online ? "ok" : "warn") }), " ", n.name + (n.is_self ? " (этот)" : "")], `${n.ip} · ${n.os}` + (n.exit_node ? " · выход в интернет" : ""))),
+        ],
+      };
+    }));
+}
+
 const SUBS = {
+  control: ["shield", "Управление сервером", "Обновление UNI, самопроверка, безопасность, сеть", viewControl],
   settings: ["gear", "Настройки", "Новости, категории и источники", viewSettings],
   tools: ["tools", "Инструменты", "Конвертер файлов, сборка PDF, скачивание", viewTools],
   movies: ["film", "Кино и сериалы", "Поиск, загрузки, новинки", viewMovies], sites: ["search", "Слежка за ценами", "Цены и изменения на страницах", viewSites],

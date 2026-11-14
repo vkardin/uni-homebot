@@ -166,7 +166,6 @@ def _spawn_watchdog(bot: Bot, settings: Settings) -> None:
     task.add_done_callback(_watchdogs.discard)
 
 
-@router.callback_query(UpdateCb.filter(F.action == UpdateAction.GO))
 async def _backup_before_update(settings: Settings, store: StateStore, db: Database) -> None:
     """💾 Копия базы и состояния перед обновлением; не получилось — обновление всё равно идёт (откат кода есть)."""
     try:
@@ -175,8 +174,10 @@ async def _backup_before_update(settings: Settings, store: StateStore, db: Datab
         log.warning("Backup before update failed: %s", exc)
 
 
+@router.callback_query(UpdateCb.filter(F.action == UpdateAction.GO))
 async def cb_go(call: CallbackQuery, callback_data: UpdateCb, bot: Bot, settings: Settings, store: StateStore, db: Database) -> None:
-    if not is_fresh(callback_data.ts, time.time()) and time.time() - callback_data.ts > selfupdate.CONFIRM_TTL_SEC:
+    # у карточки архива своё окно (15 минут): проверить подпись и прочитать список изменений нужно время
+    if not 0 <= time.time() - callback_data.ts <= selfupdate.CONFIRM_TTL_SEC:
         await call.answer(texts.STALE, show_alert=True)
         return
     path = selfupdate.archive_path(settings.state_dir)

@@ -623,6 +623,7 @@ async def _main() -> int:
                 settings=settings, db=db, store=store, system=system, units=units, power=power_service, logs=logs_service,
                 apps=apps, tasks=tasks, ollama=ollama, news=news, network=network_service, prefs=prefs, access=access,
                 converter=converter, http=http, inbox=inbox, repair=repair,
+                bot=bot, ssh_log=SshLog(settings.tz), updates=updates, smart=smart,
             )
         )  # fmt: skip
 

@@ -18,6 +18,7 @@ PANEL_SUBS |= set(re.findall(r",\s*(\w+): \[\"", APP_JS[APP_JS.index("const SUBS
 
 # раздел панели (SUBS в app.js) → команда в чате
 PARITY = {
+    "control": "security",
     "settings": "settings",
     "tools": "tools",
     "movies": "movies",
@@ -54,5 +55,6 @@ def test_tabs():
 
 def test_new_platform_commands_have_panel_side():
     for command, api in {"report": "/api/report", "why": "/api/ask-server", "modules": "/api/plugins", "rules": "/api/rules",
-                         "servers": "/api/servers", "home": "/api/hass", "catalog": "/api/community"}.items():  # fmt: skip
+                         "servers": "/api/servers", "home": "/api/hass", "catalog": "/api/community",
+                         "update": "/api/control/update", "doctor": "/api/control/doctor", "net": "/api/control/network"}.items():  # fmt: skip
         assert command in CHAT_COMMANDS and f'"{api}' in API

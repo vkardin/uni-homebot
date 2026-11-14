@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-10.1.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-10.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-10.1.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-10.2.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,19 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🛡 Управление сервером из панели (10.2)
+
+Панель → Ещё → «Управление сервером» (или кнопка на вкладке «Сервер»): всё, что раньше было только в чате.
+
+- **Обновление UNI**: проверить новый релиз на GitHub, установить его одной кнопкой (перед установкой — бэкап, подпись и системные файлы проверяются так же, как в чате) или откатиться на прежнюю версию.
+- **Самопроверка** (`/doctor`): Telegram, фоновые задачи, приложения, диски, бэкап, источники новостей; упавшие задачи перезапускаются кнопкой.
+- **Безопасность** (`/security`): входы по SSH, неудачные попытки за сутки, доступные обновления пакетов, SMART дисков.
+- **Сеть** (`/net`): внешний IP, текущая скорость, устройства Tailscale.
+
+Службы, Docker, процессы, журналы и питание — как и раньше, на вкладке «Сервер». Пакеты системы из панели не ставятся (`sudo apt upgrade` на сервере): так безопаснее. Всё это доступно только администратору.
+
+Исправлено: кнопка «✅ Установить» у архива обновления в чате делала только бэкап и не запускала установку (с 6.5.0).
 
 ### 🛡 Облачный сторож (10.1)
 
