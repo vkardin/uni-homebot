@@ -630,7 +630,7 @@ async def read(request: web.Request) -> Any:
         raise ApiError(str(exc)) from exc
     async with aiohttp.ClientSession(headers={"User-Agent": f"homebot/{__version__}"}) as session:
         try:
-            title, text = await fetch_text(session, url)
+            title, text = await fetch_text(session, url, public_only=True)
         except WebTextError as exc:
             raise ApiError(str(exc), status=502) from exc
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
