@@ -64,6 +64,7 @@ class Ctx:
     http: Any = None  # aiohttp.ClientSession: собрать заново сервисы включённого модуля
     inbox: Any = None  # Inbox: 🔔 центр уведомлений
     repair: Any = None  # Repair: 🛠 ремонт сервера по PIN
+    fixer: Any = None  # ContainerFixer: 🔧 авторемонт контейнеров
     bot: Any = None  # aiogram Bot: самопроверка (связь с Telegram)
     ssh_log: Any = None  # SshLog: входы по SSH
     updates: Any = None  # UpdatesService: обновления пакетов
@@ -1338,7 +1339,63 @@ async def control_doctor(request: web.Request) -> Any:
     if c.bot is None:
         raise ApiError("самопроверка недоступна", 404)
     report = await build_report(c.bot, c.settings, c.apps, c.prefs, c.ollama, c.smart, c.news, c.store, c.converter, c.tasks)
-    return {**plain(report), "problems": report.problems, "broken": len(c.tasks.broken())}
+    return {**plain(report), "problems": report.problems, "broken": len(c.tasks.broken()), "fixes": _fixes_state(c)}
+
+
+# ---------------------------------------------------------------- 🔧 ремонт найденного самопроверкой (10.3)
+def _fixes_state(c: Ctx) -> dict[str, Any]:
+    from homebot.services import fixes
+
+    try:
+        env = fixes.env_report(c.settings)
+    except OSError:
+        env = {"legacy": [], "other": [], "writable": False, "hint": "", "backups": 0}
+    return {
+        "env": env,
+        "docker": bool(c.apps.docker is not None and c.fixer is not None and c.fixer.available),
+        "qbit": bool(c.apps.qbit is not None and c.apps.qbit.auth_failed),
+        "qbit_user": c.apps.qbit.username if c.apps.qbit is not None else "",
+    }
+
+
+@routes.get("/api/control/fixes")
+async def control_fixes(request: web.Request) -> Any:
+    return _fixes_state(_ctx(request))
+
+
+@routes.post("/api/control/fixes")
+async def control_fixes_post(request: web.Request) -> Any:
+    from homebot.handlers.autofix import repair_containers
+    from homebot.services import fixes
+
+    c = _ctx(request)
+    body = await _json(request)
+    op = body.get("op")
+    if op == "env_clean":
+        if body.get("confirm") is not True:
+            raise ApiError("нужно confirm=true")
+        try:
+            removed, backup = fixes.remove_legacy(c.settings)
+        except OSError as exc:
+            raise ApiError(f"не вышло: {exc}", 409) from None
+        return {"removed": removed, "backup": str(backup) if backup else None, **_fixes_state(c)}
+    if op == "docker":
+        if c.apps.docker is None or c.fixer is None or not c.fixer.available:
+            raise ApiError("перезапуск контейнеров недоступен", 404)
+        try:
+            results = await repair_containers(c.apps, c.settings, c.fixer)
+        except AppError as exc:
+            raise ApiError(f"Docker не отвечает: {exc}", 502) from None
+        return {"results": [plain(r) for r in results]}
+    if op == "qbit":
+        try:
+            saved = await asyncio.wait_for(
+                fixes.qbit_login(c.settings, c.apps, str(body.get("username", "")), str(body.get("password", ""))), 20
+            )
+        except (AppError, ValueError, TimeoutError) as exc:
+            raise ApiError(f"вход не удался: {exc or 'нет ответа'}. Ничего не сохранил", 400) from None
+        return {"where": saved.where, "backup": str(saved.backup) if saved.backup else None, "note": saved.note}
+    raise ApiError("op: env_clean, docker или qbit")
 
 
 @routes.post("/api/control/repair-tasks")

@@ -7,6 +7,7 @@ from typing import Any
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from homebot import __version__
@@ -14,6 +15,7 @@ from homebot.config import CONTAINER_OFF_TEXT, Settings
 from homebot.services import backup as backup_svc
 from homebot.services import selfupdate
 from homebot.services.apps import Apps
+from homebot.services.autofix import ContainerFixer
 from homebot.services.convert import Converter, describe_caps, install_hint
 from homebot.services.doctor import FAIL, OFF, OK, WARN, Check, Report, collect, guard, guard_many, ollama_check
 from homebot.services.kernel_log import read_kernel_log
@@ -91,11 +93,20 @@ async def _selfupdate() -> Check:
 
 async def _env() -> Check:
     from homebot.services.envcheck import unknown_keys
+    from homebot.services.envfile import legacy_reason
 
     extra = unknown_keys()
     if not extra:
         return Check(OK, ".env", "все ключи знакомы")
-    return Check(WARN, ".env", "незнакомые ключи (опечатка или больше не нужны, бот их не трогает): " + ", ".join(extra[:8]))
+    legacy = [k for k in extra if legacy_reason(k)]
+    other = [k for k in extra if not legacy_reason(k)]
+    parts = []
+    if legacy:
+        more = f" и ещё {len(legacy) - 6}" if len(legacy) > 6 else ""
+        parts.append("устаревшие (этих функций больше нет, можно убрать кнопкой ниже): " + ", ".join(legacy[:6]) + more)
+    if other:
+        parts.append("незнакомые (опечатка?): " + ", ".join(other[:6]))
+    return Check(WARN, ".env", "; ".join(parts))
 
 
 async def _backup(settings: Settings, store: StateStore) -> Check:
@@ -202,8 +213,17 @@ async def build_report(
     return await collect(checks, list(prefs.news().feeds), news.fetch_feed, off)
 
 
-async def _build_report(*args: Any) -> str:
-    return render_doctor(await build_report(*args), __version__)
+async def _screen(fixer: ContainerFixer | None, *args: Any) -> tuple[str, Any]:
+    from homebot.handlers.autofix import offers
+
+    report = await build_report(*args)
+    settings, apps, tasks = args[1], args[2], args[-1]
+    docker_problems = any(c.name == "Docker" and c.status == WARN for c in report.checks)
+    try:
+        found = await offers(settings, apps, fixer, docker_problems)
+    except Exception:  # кнопки ремонта — дополнение: их сбой не должен прятать сам отчёт
+        found = []
+    return render_doctor(report, __version__), kb.doctor_kb(repair=bool(tasks.broken()), fixes=found)
 
 
 @router.message(Command("doctor", "check"))
@@ -219,10 +239,13 @@ async def cmd_doctor(
     store: StateStore,
     converter: Converter,
     tasks: TaskManager,
+    state: FSMContext,
+    fixer: ContainerFixer | None = None,
 ) -> None:
+    await state.clear()
     status = await message.answer(_WAIT)
-    text = await _build_report(bot, settings, apps, prefs, ollama, smart, news, store, converter, tasks)
-    await status.edit_text(text, reply_markup=kb.doctor_kb(repair=bool(tasks.broken())))
+    text, markup = await _screen(fixer, bot, settings, apps, prefs, ollama, smart, news, store, converter, tasks)
+    await status.edit_text(text, reply_markup=markup)
 
 
 @router.callback_query(MenuCb.filter(F.action == MenuAction.DOCTOR))
@@ -238,11 +261,14 @@ async def cb_doctor(
     store: StateStore,
     converter: Converter,
     tasks: TaskManager,
+    state: FSMContext,
+    fixer: ContainerFixer | None = None,
 ) -> None:
+    await state.clear()
     await call.answer()
     await edit_or_send(call, _WAIT)
-    text = await _build_report(bot, settings, apps, prefs, ollama, smart, news, store, converter, tasks)
-    await edit_or_send(call, text, kb.doctor_kb(repair=bool(tasks.broken())))
+    text, markup = await _screen(fixer, bot, settings, apps, prefs, ollama, smart, news, store, converter, tasks)
+    await edit_or_send(call, text, markup)
 
 
 @router.message(Command("setup"))

@@ -385,3 +385,9 @@ class RepairCb(CallbackData, prefix="d"):
     """🛠 Ремонт сервера: действие из белого списка (act — id действия, «» — список)."""
 
     act: str = ""
+
+
+class AutofixCb(CallbackData, prefix="af"):
+    """🔧 Ремонт найденного /doctor: env (экран ключей), env_rm (убрать), dock (контейнеры), qbit (логин)."""
+
+    act: str

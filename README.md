@@ -6,7 +6,7 @@
 
 [Сайт](https://vkardin.github.io/uni-homebot/) · [Скачать](https://github.com/vkardin/uni-homebot/releases/latest) · [Установка](#установка-за-минуту)
 
-![version](https://img.shields.io/badge/версия-10.2.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
+![version](https://img.shields.io/badge/версия-10.3.0-7aa7ff) ![python](https://img.shields.io/badge/python-3.11+-3776ab) ![aiogram](https://img.shields.io/badge/aiogram-3-2ca5e0) ![self-hosted](https://img.shields.io/badge/self--hosted-✓-4fbf86)
 
 <img src="docs/assets/screen-server.webp" width="190" alt="Сервер"> <img src="docs/assets/screen-news.webp" width="190" alt="Новости"> <img src="docs/assets/screen-money.webp" width="190" alt="Деньги"> <img src="docs/assets/screen-more.webp" width="190" alt="Ещё">
 
@@ -32,7 +32,7 @@
 ### Установка за минуту
 
 ```bash
-tar xzf homebot-10.2.0.tar.gz      # архив со страницы релизов
+tar xzf homebot-10.3.0.tar.gz      # архив со страницы релизов
 sudo bash homebot/deploy/install.sh
 ```
 
@@ -214,6 +214,29 @@ cd ~/homebot-releases && tar xzf homebot-X.Y.Z.tar.gz && sudo bash homebot/deplo
 
 После изменения `RESTART_SERVICES` или `POWER_ENABLED` в `.env` снова запустите
 `sudo bash /opt/homebot/deploy/update.sh` — он перегенерирует права polkit.
+
+### 🔧 Авторемонт (10.3)
+
+Что нашла самопроверка, чинится кнопкой в `/doctor` или в панели (Ещё → Управление сервером → Самопроверка → «Ремонт»),
+а упавшие контейнеры бот поднимает и сам.
+
+- **Контейнеры.** Контейнер, который упал или стал unhealthy при работающем боте, перезапускается автоматически:
+  до 3 попыток за 6 часов, между ними паузы 2 и 10 минут. Сначала поднимаются его зависимости (например, `romm-db`
+  перед `romm`): по меткам Docker Compose, а без них — по имени в том же проекте. Если не помогло, придёт одно
+  сообщение с причиной: для кода 137 и отметки OOM — подсказка про память (лимит контейнера или RAM сервера).
+  Штатную остановку (код 0 или 143, так завершается `docker stop`) бот сам не трогает. Контейнеры, которые уже стояли
+  до запуска бота, — только по кнопке «🐳 Починить контейнеры». Выключить автоматику: модуль «Авторемонт
+  контейнеров» в 🧱 Модулях или `DOCKER_AUTOFIX=false`; кнопка останется.
+- **`.env`.** Ключи функций, убранных в 3.2 (`DIGEST_*`, `RSS_ITEMS_PER_FEED`, `AIR_*`, `ALERTS_IN_UA_TOKEN`,
+  `HEARTBEAT_*`…), убираются кнопкой «🧹». Перед правкой копия `.env` кладётся в `/var/lib/homebot/env-backups/`
+  (10 последних, права 600). Незнакомые ключи бот только показывает, с подсказкой при вероятной опечатке.
+- **qBittorrent.** Если вход отклонён, кнопка «🔑 Ввести логин qBittorrent» спросит логин и пароль (сообщение с
+  паролем бот сразу удаляет), проверит вход и только потом сохранит: в `.env` (с копией) или в настройках подключения,
+  если qBittorrent подключали из чата. Перезапуск бота не нужен.
+
+Чтобы бот мог править `.env`, служба с 10.3 получила `ReadWritePaths=-/opt/homebot/.env`, поэтому эту версию ставьте
+через `sudo bash deploy/update.sh` (из чата обновлятор её не поставит: изменился системный файл). В Docker `.env` в
+контейнер не смонтирован: там бот подскажет, что поменять руками.
 
 ### 🛡 Управление сервером из панели (10.2)
 
@@ -536,7 +559,7 @@ qBittorrent, AdGuard и Speedtest хранят пароли в виде хэше
 * **Чистка диска** (`/cleanup`, кнопка «🧹 Диск» в «Кино») — нужны Jellyfin и Radarr/Sonarr. Удаление всегда с
   подтверждением; «удалить всё» защищено подписью списка (если список изменился — попросит открыть заново).
 * **Docker**: в сообщении о проблеме — хвост журнала, кнопки «журнал/перезапуск», позже модель дописывает причину.
-  Автоперезапуск — только для контейнеров из `DOCKER_AUTOHEAL`, не чаще 3 раз в час.
+  Автоперезапуск — только для контейнеров из `DOCKER_AUTOHEAL`, не чаще 3 раз в час (с 10.3 — авторемонт, см. выше).
 * **Скорость интернета**: тревога, если скорость упала на `SPEEDTEST_DROP_PERCENT`% от обычной (медиана последних
   замеров), и воскресный отчёт с графиком.
 * **Бесплатные игры**: Epic — официальный JSON; Steam/GOG — через gamerpower.com (у Steam официального списка нет,

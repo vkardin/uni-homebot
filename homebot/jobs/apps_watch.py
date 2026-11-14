@@ -18,6 +18,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 
 from homebot.services.apps_http import AppError
+from homebot.services.autofix import ContainerFixer, Result
 from homebot.services.docker_api import Container, DockerService
 from homebot.services.docker_diag import DIAG_PROMPT, Asker, prepare_diag_input, render_tail, tidy_diag
 from homebot.services.llm_queue import Priority, set_priority
@@ -86,7 +87,9 @@ async def _loop(name: str, interval: float, tick: Callable[[], Awaitable[None]])
 class DockerWatchJob:
     """Сообщает о проблемах контейнеров: с хвостом журнала, кнопками и (в фоне) разбором от модели.
 
-    Автолечение — только для контейнеров из `autoheal` и не чаще `HEAL_LIMIT` раз в час на контейнер.
+    С модулем «Авторемонт» (`fixer`) перезапуском занимается он: с паузами, лимитом попыток и зависимостями
+    (services/autofix.py). Без него — прежнее автолечение: только контейнеры из `autoheal`, не чаще `HEAL_LIMIT`
+    раз в час на контейнер.
     """
 
     KEY = "docker.problems"
@@ -106,9 +109,12 @@ class DockerWatchJob:
         asker: Asker | None = None,
         autoheal: frozenset[str] | set[str] = frozenset(),
         markup: Callable[[Sequence[str], bool], Any] | None = None,
+        fixer: ContainerFixer | None = None,
     ) -> None:
         self._notify = _Notifier(bot, admin_id)
         self._docker = docker
+        self._fixer = fixer
+        self._incidents: set[str] = set()  # сломались на глазах у бота — их авторемонт доводит до конца
         self._store = store
         self._ignore = ignore
         self._interval = interval
@@ -147,20 +153,76 @@ class DockerWatchJob:
             log.debug("Docker watch: no logs for %s: %s", name, exc)
             return ""
 
+    # ---- авторемонт (модуль)
+    @staticmethod
+    def _result_line(r: Result, *, named: bool = False) -> str:
+        who = f"<code>{esc(r.name)}</code>" if named else ""
+        who += " (зависимость)" if r.dependency else ""
+        return f"🔧 {who + ': ' if who else ''}{'перезапустил — ' if r.ok else 'перезапуск не помог: '}{esc(r.detail)}"
+
+    async def _retry(self, containers: dict[str, Container], new: dict[str, str | None]) -> None:
+        """Повторные попытки по уже известным сбоям — молча; если все попытки не помогли — одно сообщение."""
+        fixer = self._fixer
+        assert fixer is not None
+        self._incidents &= set(containers)
+        retry = sorted(n for n in self._incidents if n not in new and fixer.due(n))
+        if retry:
+            await fixer.fix(retry)
+        gave_up = [n for n in sorted(self._incidents) if fixer.exhausted(n) and fixer.give_up_once(n)]
+        if not gave_up:
+            return
+        try:
+            fresh = {c.name: c for c in await self._docker.containers()}
+        except AppError:
+            fresh = {}
+        lines = ["🐳 <b>Авторемонт не помог</b>"]
+        names: list[str] = []
+        for name in gave_up:
+            c = fresh.get(name) or containers[name]
+            if not c.problem:  # поднялся после последней попытки
+                continue
+            names.append(name)
+            lines.append(f"🔴 <code>{esc(name)}</code>: {esc(c.problem)} — {fixer.attempts(name)} перезапуска за 6 ч")
+            lines.append(f"💡 {esc(await fixer.explain(c))}")
+        if names:
+            markup = self._markup(names, self._docker.restart_enabled) if self._markup else None
+            await self._notify.send_message("\n".join(lines), markup)
+
     async def tick(self) -> None:
         containers = {c.name: c for c in await self._docker.containers() if c.problem and c.name not in self._ignore}
         current = {name: c.problem for name, c in containers.items()}
         known: dict[str, str] = dict(self._store.get(self.KEY) or {})
         new = {name: problem for name, problem in current.items() if name not in known}
         recovered = [name for name in known if name not in current]
+        fixer = self._fixer
+        if fixer is not None:
+            for name in recovered:
+                fixer.forget(name)
+            self._incidents -= set(recovered)
+            await self._retry(containers, new)
         if not new and not recovered:
             return
+
+        results: dict[str, Result] = {}
+        if fixer is not None:
+            to_fix = [n for n in sorted(new) if fixer.eligible(containers[n]) and fixer.due(n)]
+            for r in await fixer.fix(to_fix) if to_fix else []:
+                results[r.name] = r
+            self._incidents |= {n for n in to_fix if not (n in results and results[n].ok)}
+            for name, r in results.items():  # поднялся сразу — о «снова в порядке» потом не пишем
+                if r.ok:
+                    current.pop(name, None)
 
         lines = ["🐳 <b>Docker</b>"]
         detailed: list[str] = []
         for name, problem in sorted(new.items()):
             lines.append(f"🔴 <code>{esc(name)}</code>: {esc(problem or '')}")
-            if self._can_heal(name):
+            if fixer is not None:
+                if name in results:
+                    lines.append(self._result_line(results[name]))
+                if name in results and results[name].ok:
+                    continue
+            elif self._can_heal(name):
                 lines.append(await self._heal(name))
             elif name in self._autoheal and self._docker.restart_enabled:
                 lines.append(f"🔧 автоперезапуск исчерпан ({self.HEAL_LIMIT} за час) — смотрите журнал")
@@ -169,10 +231,11 @@ class DockerWatchJob:
                 if tail:
                     lines.append(tail)
                 detailed.append(name)
+        lines += [self._result_line(r, named=True) for name, r in sorted(results.items()) if name not in new]
         lines += [f"🟢 <code>{esc(name)}</code>: снова в порядке" for name in sorted(recovered)]
 
         text = "\n".join(lines)
-        buttons = [name for name in sorted(new) if len(name) <= 30]
+        buttons = [name for name in sorted(new) if len(name) <= 30 and name in current]
         markup = self._markup(buttons, self._docker.restart_enabled) if (self._markup and buttons) else None
         message_id = await self._notify.send_message(text, markup)
         if message_id is None:

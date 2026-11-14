@@ -89,6 +89,29 @@ class QbitService:
         self._login_lock = asyncio.Lock()
         self._blocked_until = 0.0
         self._blocked_reason = ""
+        self.auth_failed = False  # последний вход отклонён из-за логина/пароля — /doctor предложит ввести новые
+
+    @property
+    def base_url(self) -> str:
+        return self._base
+
+    @property
+    def username(self) -> str:
+        return self._username
+
+    def set_credentials(self, username: str, password: str) -> None:
+        """Новые логин и пароль (проверенные `check_login`) — без перезапуска бота."""
+        self._username = username
+        self._password = password
+        self._sid = None
+        self._blocked_until = 0.0
+        self._blocked_reason = ""
+        self.auth_failed = False
+
+    async def check_login(self, username: str, password: str) -> None:
+        """Один пробный вход с другими данными; текущий вход не трогает. AppError — с понятной причиной."""
+        probe = QbitService(self._session, self._base, username, password)
+        await probe._try_login()
 
     async def _login(self) -> None:
         async with self._login_lock:
@@ -97,11 +120,13 @@ class QbitService:
             try:
                 await self._try_login()
             except AppError as exc:
+                self.auth_failed = "неверный логин" in str(exc)
                 if "заблокировал" in str(exc) or "неверный логин" in str(exc):
                     self._blocked_until = time.monotonic() + LOGIN_COOLDOWN
                     self._blocked_reason = f"{exc} — повторю вход через несколько минут"
                 raise
             self._blocked_until = 0.0
+            self.auth_failed = False
 
     async def _try_login(self) -> None:
         try:

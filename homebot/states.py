@@ -54,3 +54,8 @@ class TileStates(StatesGroup):
 
 class RepairStates(StatesGroup):
     pin = State()  # ждём PIN для выбранного действия
+
+
+class AutofixStates(StatesGroup):
+    qbit_user = State()  # ждём новый логин qBittorrent
+    qbit_pass = State()  # ждём пароль (сообщение с ним удаляется)

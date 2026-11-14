@@ -41,6 +41,7 @@ FEATURES: tuple[Feature, ...] = (
     Feature("tools", "Инструменты", "🧰", "TOOLS", ("tools",), (), ("tools",)),
     Feature("weather", "Погодные предупреждения", "☔", jobs=("weather",)),
     Feature("games", "Бесплатные игры", "🎮", jobs=("games",)),
+    Feature("autofix", "Авторемонт контейнеров", "🔧"),
 )
 FEATURE_BY_ID: dict[str, Feature] = {f.id: f for f in FEATURES}
 assert not set(FEATURE_BY_ID) & set(BY_ID), "id разделов и плиток не должны пересекаться"

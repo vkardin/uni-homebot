@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import aiohttp
@@ -27,6 +27,7 @@ class Container:
     image: str
     state: str  # running | exited | restarting | paused | created | dead
     status: str  # «Up 22 hours (healthy)», «Exited (137) 6 hours ago»
+    labels: dict[str, str] = field(default_factory=dict, compare=False, hash=False)  # метки compose: проект, зависимости
 
     @property
     def health(self) -> str | None:
@@ -81,6 +82,7 @@ def parse_containers(data: Any) -> list[Container]:
                 image=str(item.get("Image", "")),
                 state=str(item.get("State", "")),
                 status=str(item.get("Status", "")),
+                labels={str(k): str(v) for k, v in (item.get("Labels") or {}).items()} if isinstance(item.get("Labels"), dict) else {},
             )
         )
     # Проблемные сверху, затем по имени.
@@ -127,6 +129,13 @@ class DockerService:
         )
         text = demux_logs(raw).strip()
         return ("…" + text[-_LOG_TAIL_MAX:]) if len(text) > _LOG_TAIL_MAX else text
+
+    async def inspect(self, name: str) -> dict[str, Any]:
+        """Подробности контейнера (State.OOMKilled, лимит памяти) — только чтение, как и список."""
+        if not NAME_RE.fullmatch(name):
+            raise AppError("недопустимое имя контейнера")
+        data = await request(self._session, "GET", f"{self._base}/containers/{name}/json", timeout=10)
+        return data if isinstance(data, dict) else {}
 
     async def restart(self, name: str) -> tuple[bool, str]:
         if not self.restart_enabled:

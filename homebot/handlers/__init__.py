@@ -16,6 +16,7 @@ def build_routers() -> list[Router]:
     from homebot.handlers import (
         access,
         apps,
+        autofix,
         backup,
         charts,
         cleanup,
@@ -55,6 +56,7 @@ def build_routers() -> list[Router]:
         movies.router,  # 🎬 кино и сериалы (FSM: поиск, «своими словами»)
         settings.router,  # ⚙️ настройки (FSM: добавление ленты)
         tiles.router,  # 🧩 подключение приложений из чата (FSM: адрес и ключ)
+        autofix.router,  # 🔧 ремонт найденного /doctor (FSM: логин qBittorrent)
         monitoring.router,  # состояние, live, топ процессов, службы
         charts.router,  # графики
         logs.router,  # журналы служб + разбор моделью

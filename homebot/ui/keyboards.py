@@ -32,6 +32,7 @@ from homebot.ui.callbacks import (
     App,
     AppAction,
     AppCb,
+    AutofixCb,
     BackupAction,
     BackupCb,
     ChartCb,
@@ -841,15 +842,27 @@ def budget_kb(offset: int) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def doctor_kb(*, repair: bool = False) -> InlineKeyboardMarkup:
+def doctor_kb(*, repair: bool = False, fixes: Sequence[tuple[str, str]] = ()) -> InlineKeyboardMarkup:
+    """fixes: (действие AutofixCb, подпись) — ремонт того, что нашла самопроверка."""
     builder = InlineKeyboardBuilder()
     if repair:
         builder.button(text="🔧 Починить", callback_data=_menu(MenuAction.REPAIR))
+    for act, title in fixes:
+        builder.button(text=title, callback_data=AutofixCb(act=act))
     builder.button(text="🔄 Проверить ещё раз", callback_data=_menu(MenuAction.DOCTOR))
     builder.button(text="🛠 Ремонт сервера", callback_data=RepairCb())
     builder.button(text="🖥 Сервер", callback_data=_menu(MenuAction.SERVER))
     builder.button(text="⬅️ Меню", callback_data=_menu(MenuAction.HOME))
-    builder.adjust(*([1] if repair else []), 2, 2)
+    builder.adjust(*([1] if repair else []), *([1] * len(fixes)), 2, 2)
+    return builder.as_markup()
+
+
+def autofix_back_kb(*, extra: Sequence[tuple[str, str]] = ()) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for act, title in extra:
+        builder.button(text=title, callback_data=AutofixCb(act=act))
+    builder.button(text="🩺 К самопроверке", callback_data=_menu(MenuAction.DOCTOR))
+    builder.adjust(1)
     return builder.as_markup()
 
 

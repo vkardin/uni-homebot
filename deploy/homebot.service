@@ -60,6 +60,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
+# С 10.3 бот может сам править .env (только по кнопке: убрать устаревшие ключи, новый пароль приложения),
+# всегда с копией в /var/lib/homebot/env-backups. Остальное в /opt/homebot по-прежнему только для чтения.
+ReadWritePaths=-/opt/homebot/.env
 # read-only (а не true), чтобы psutil видел заполненность раздела /home, если он смонтирован отдельно
 ProtectHome=read-only
 ProtectKernelTunables=true

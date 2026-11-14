@@ -40,6 +40,7 @@ from homebot.services import connect, modules, overrides, owner
 from homebot.services.access import AccessService
 from homebot.services.apps import Apps, build_apps
 from homebot.services.article_translate import LibreTranslator
+from homebot.services.autofix import ContainerFixer
 from homebot.services.backup import parse_extra_paths
 from homebot.services.brief import BriefService
 from homebot.services.charts import render_speed_chart
@@ -161,6 +162,7 @@ def _register_jobs(
     news: NewsService,
     ollama: OllamaService,
     home: HomeService,
+    fixer: ContainerFixer | None = None,
 ) -> None:
     admin = settings.admin_id
 
@@ -229,6 +231,7 @@ def _register_jobs(
             asker=ollama if settings.docker_diagnose else None,
             autoheal=settings.docker_autoheal_names,
             markup=docker_alert_kb,
+            fixer=fixer,
         )
         tasks.register(
             "docker",
@@ -561,6 +564,16 @@ async def _main() -> int:
             month_spent=month_spent if actual is not None else None,
         )
         tasks = TaskManager(store)
+        # 🔧 авторемонт контейнеров (модуль «Авторемонт»): сам чинит упавшее на глазах; по кнопке — что угодно
+        fixer = (
+            ContainerFixer(
+                apps.docker,
+                auto=settings.docker_autofix and "autofix" not in modules.off(store),
+                autoheal=settings.docker_autoheal_names,
+            )
+            if apps.docker is not None
+            else None
+        )
         _register_jobs(
             tasks,
             bot=bot,
@@ -578,6 +591,7 @@ async def _main() -> int:
             news=news,
             ollama=ollama,
             home=home,
+            fixer=fixer,
         )
 
         for job in modules.off_jobs(modules.off(store)):  # 🧱 задачи выключенных разделов не запускаем
@@ -616,13 +630,14 @@ async def _main() -> int:
             home=home,
             converter=converter,
             repair=repair,
+            fixer=fixer,
         )
 
         web_runner = await web_server.start(
             WebCtx(
                 settings=settings, db=db, store=store, system=system, units=units, power=power_service, logs=logs_service,
                 apps=apps, tasks=tasks, ollama=ollama, news=news, network=network_service, prefs=prefs, access=access,
-                converter=converter, http=http, inbox=inbox, repair=repair,
+                converter=converter, http=http, inbox=inbox, repair=repair, fixer=fixer,
                 bot=bot, ssh_log=SshLog(settings.tz), updates=updates, smart=smart,
             )
         )  # fmt: skip

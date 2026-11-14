@@ -1004,8 +1004,39 @@ async function viewControl(root) {
         d.off.length ? h("div", { class: "dim small" }, "Не подключено: " + d.off.join(", ")) : null,
         h("div", { class: "inline" },
           h("button", { class: "btn", onclick: act(runDoctor) }, "Проверить ещё раз"),
-          d.broken ? h("button", { class: "btn primary", onclick: act(async () => { const r = await post("/api/control/repair-tasks"); runDoctor(); return r; }, (r) => "Перезапущено задач: " + r.restarted) }, "🔧 Починить задачи") : null)));
+          d.broken ? h("button", { class: "btn primary", onclick: act(async () => { const r = await post("/api/control/repair-tasks"); runDoctor(); return r; }, (r) => "Перезапущено задач: " + r.restarted) }, "🔧 Починить задачи") : null)),
+        fixCard(d.fixes || {}, d.checks.some((c) => c.name === "Docker" && c.status === "warn")));
     } catch (e) { doc.replaceChildren(failure(e)); }
+  }
+  // 🔧 ремонт найденного: устаревшие ключи .env, контейнеры, логин qBittorrent
+  function fixCard(f, dockerBad) {
+    const env = f.env || { legacy: [], other: [] }, out = h("div");
+    const items = [];
+    if (env.legacy.length) {
+      items.push(row("🧹 .env: устаревшие ключи", env.legacy.map((x) => x.key).join(", ") + " — " + [...new Set(env.legacy.map((x) => x.reason))].join("; ")),
+        env.writable ? h("button", { class: "btn", onclick: act(async () => {
+          if (!(await confirmAsk("Убрать из .env устаревшие ключи? Копия .env сохранится."))) return null;
+          const r = await post("/api/control/fixes", { op: "env_clean", confirm: true }); runDoctor(); return r;
+        }, (r) => r ? `Убрано: ${r.removed.length}. Копия: ${r.backup}` : "Отменено") }, "🧹 Убрать") : h("div", { class: "dim small" }, env.hint));
+    }
+    if (env.other.length) items.push(h("div", { class: "dim small" }, "Не узнаю (проверьте сами): " + env.other.map((x) => x.key + (x.guess ? ` (может, ${x.guess}?)` : "")).join(", ")));
+    if (dockerBad && f.docker) {
+      items.push(row("🐳 Контейнеры с проблемами", "Перезапущу, зависимости — первыми; до пары минут", h("button", { class: "btn", onclick: act(async () => {
+        const r = await post("/api/control/fixes", { op: "docker" });
+        out.append(...r.results.map((x) => row((x.ok ? "✅ " : "❌ ") + x.name + (x.dependency ? " (зависимость)" : ""), x.detail)));
+        return r;
+      }, (r) => r.results.length ? `Готово: ${r.results.filter((x) => x.ok).length} из ${r.results.length}` : "Чинить нечего") }, "🔧 Починить")));
+    }
+    if (f.qbit) {
+      const user = h("input", { placeholder: "Логин", value: f.qbit_user || "", autocomplete: "username" });
+      const pass = h("input", { type: "password", placeholder: "Пароль", autocomplete: "current-password" });
+      items.push(row("🔑 qBittorrent: неверный логин или пароль", "Сначала проверю вход, сохраню только если он прошёл"), user, pass,
+        h("button", { class: "btn primary", onclick: act(async () => {
+          const r = await post("/api/control/fixes", { op: "qbit", username: user.value, password: pass.value });
+          pass.value = ""; runDoctor(); return r;
+        }, (r) => r.where === "env" ? "Вход работает, записал в .env (копия сохранена)" : r.where === "chat" ? "Вход работает, сохранил" : "Вход работает до перезапуска: " + r.note) }, "Проверить и сохранить"));
+    }
+    return items.length ? card("Ремонт", ...items, out) : h("div");
   }
   await drawUpdate(false);
   doc.replaceChildren(card("Самопроверка", h("div", { class: "dim" }, "Telegram, фоновые задачи, приложения, диски, бэкап и источники новостей."),

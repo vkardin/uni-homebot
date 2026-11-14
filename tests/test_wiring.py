@@ -26,13 +26,13 @@ INJECTABLE = {
     "state", "raw_state", "bot", "bots", "dispatcher", "callback_data", "command", "event_update",
     "event_from_user", "event_chat", "event_router", "handler",
     "settings", "system", "units", "ollama", "tasks",
-    "http", "db", "network", "ssh_log", "updates", "smart", "power", "logs", "apps", "news", "prefs", "store", "briefs", "home", "access", "guest", "converter", "repair",
+    "http", "db", "network", "ssh_log", "updates", "smart", "power", "logs", "apps", "news", "prefs", "store", "briefs", "home", "access", "guest", "converter", "repair", "fixer",
 }  # fmt: skip
 
 
 INJECTABLE_SERVICES = (
     "settings", "system", "units", "ollama", "tasks",
-    "http", "db", "network", "ssh_log", "updates", "smart", "power", "logs", "apps", "news", "prefs", "store", "briefs", "home", "converter", "repair",
+    "http", "db", "network", "ssh_log", "updates", "smart", "power", "logs", "apps", "news", "prefs", "store", "briefs", "home", "converter", "repair", "fixer",
 )  # fmt: skip
 
 
