@@ -89,7 +89,13 @@ class QbitService:
         self._login_lock = asyncio.Lock()
         self._blocked_until = 0.0
         self._blocked_reason = ""
-        self.auth_failed = False  # последний вход отклонён из-за логина/пароля — /doctor предложит ввести новые
+        # Почему не вошли в последний раз: "" — всё хорошо, "auth" — логин/пароль, "address" — по адресу не qBittorrent,
+        # "down" — адрес не отвечает. Для любого из них /doctor предложит мастер «адрес, логин, пароль».
+        self.login_problem = ""
+
+    @property
+    def auth_failed(self) -> bool:
+        return bool(self.login_problem)
 
     @property
     def base_url(self) -> str:
@@ -99,19 +105,30 @@ class QbitService:
     def username(self) -> str:
         return self._username
 
-    def set_credentials(self, username: str, password: str) -> None:
-        """Новые логин и пароль (проверенные `check_login`) — без перезапуска бота."""
+    def set_credentials(self, username: str, password: str, base_url: str | None = None) -> None:
+        """Новые адрес, логин и пароль (проверенные `check_login`) — без перезапуска бота."""
+        if base_url:
+            self._base = base_url.rstrip("/")
         self._username = username
         self._password = password
         self._sid = None
         self._blocked_until = 0.0
         self._blocked_reason = ""
-        self.auth_failed = False
+        self.login_problem = ""
 
-    async def check_login(self, username: str, password: str) -> None:
+    async def check_login(self, username: str, password: str, base_url: str | None = None) -> None:
         """Один пробный вход с другими данными; текущий вход не трогает. AppError — с понятной причиной."""
-        probe = QbitService(self._session, self._base, username, password)
+        probe = QbitService(self._session, base_url or self._base, username, password)
         await probe._try_login()
+
+    async def _is_qbit(self) -> bool | None:
+        """Отвечает ли по адресу именно qBittorrent (его страница входа); None — проверить не вышло."""
+        try:
+            async with self._session.get(f"{self._base}/", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                page = (await resp.read())[:20000].decode(errors="replace").lower()
+        except (aiohttp.ClientError, TimeoutError, UnicodeError):
+            return None
+        return "qbittorrent" in page or "vuetorrent" in page
 
     async def _login(self) -> None:
         async with self._login_lock:
@@ -120,13 +137,17 @@ class QbitService:
             try:
                 await self._try_login()
             except AppError as exc:
-                self.auth_failed = "неверный логин" in str(exc)
+                text = str(exc)
+                self.login_problem = (
+                    "auth" if "неверный логин" in text else "address" if "не qBittorrent" in text
+                    else "down" if "недоступен" in text else ""
+                )  # fmt: skip
                 if "заблокировал" in str(exc) or "неверный логин" in str(exc):
                     self._blocked_until = time.monotonic() + LOGIN_COOLDOWN
                     self._blocked_reason = f"{exc} — повторю вход через несколько минут"
                 raise
             self._blocked_until = 0.0
-            self.auth_failed = False
+            self.login_problem = ""
 
     async def _try_login(self) -> None:
         try:
@@ -138,8 +159,12 @@ class QbitService:
             ) as resp:
                 body = (await resp.text()).strip()
                 bad_login = "неверный логин или пароль qBittorrent (QBIT_USERNAME/QBIT_PASSWORD)"
-                if resp.status == 401:  # qBittorrent 5.2+: ошибка входа — 401, успех — 204 без тела
-                    raise AppError(bad_login)
+                wrong = f"по адресу {self._base} отвечает не qBittorrent — проверьте QBIT_URL"
+                if resp.status in (404, 405):
+                    raise AppError(wrong)
+                if resp.status == 401 or (resp.status < 400 and body not in ("Ok.", "")):
+                    # 401 и «Fails.» — отказ во входе, но так же отвечает и чужой сервис на этом порту
+                    raise AppError(wrong if await self._is_qbit() is False else bad_login)
                 if resp.status >= 400:
                     raise AppError(
                         "qBittorrent заблокировал вход (много неудачных попыток?)"
@@ -153,7 +178,7 @@ class QbitService:
         except AppError:
             raise
         except (aiohttp.ClientError, TimeoutError) as exc:
-            raise AppError("qBittorrent недоступен") from exc
+            raise AppError(f"qBittorrent недоступен по адресу {self._base} — он запущен? Адрес — QBIT_URL") from exc
 
     async def _call(self, method: str, path: str, *, params: dict[str, str] | None = None, data: dict[str, str] | None = None) -> Any:
         for attempt in range(2):

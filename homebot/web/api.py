@@ -1355,6 +1355,8 @@ def _fixes_state(c: Ctx) -> dict[str, Any]:
         "docker": bool(c.apps.docker is not None and c.fixer is not None and c.fixer.available),
         "qbit": bool(c.apps.qbit is not None and c.apps.qbit.auth_failed),
         "qbit_user": c.apps.qbit.username if c.apps.qbit is not None else "",
+        "qbit_url": c.apps.qbit.base_url if c.apps.qbit is not None else "",
+        "qbit_problem": c.apps.qbit.login_problem if c.apps.qbit is not None else "",
     }
 
 
@@ -1390,7 +1392,10 @@ async def control_fixes_post(request: web.Request) -> Any:
     if op == "qbit":
         try:
             saved = await asyncio.wait_for(
-                fixes.qbit_login(c.settings, c.apps, str(body.get("username", "")), str(body.get("password", ""))), 20
+                fixes.qbit_login(
+                    c.settings, c.apps, str(body.get("username", "")), str(body.get("password", "")), url=str(body.get("url", ""))
+                ),
+                20,
             )
         except (AppError, ValueError, TimeoutError) as exc:
             raise ApiError(f"вход не удался: {exc or 'нет ответа'}. Ничего не сохранил", 400) from None

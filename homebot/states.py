@@ -57,5 +57,6 @@ class RepairStates(StatesGroup):
 
 
 class AutofixStates(StatesGroup):
+    qbit_url = State()  # ждём адрес qBittorrent («+» — оставить)
     qbit_user = State()  # ждём новый логин qBittorrent
     qbit_pass = State()  # ждём пароль (сообщение с ним удаляется)

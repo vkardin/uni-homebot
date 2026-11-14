@@ -36,7 +36,7 @@ async def offers(settings: Settings, apps: Apps, fixer: ContainerFixer | None, d
     if docker_problems and fixer is not None and fixer.available:
         out.append(("dock", "🐳 Починить контейнеры"))
     if apps.qbit is not None and apps.qbit.auth_failed:
-        out.append(("qbit", "🔑 Ввести логин qBittorrent"))
+        out.append(("qbit", "🔑 qBittorrent: адрес и вход"))
     return out
 
 
@@ -130,20 +130,49 @@ def _cancel_kb() -> Any:
     return kb.autofix_back_kb(extra=[("cancel", "✖️ Отмена")])
 
 
+_PROBLEM = {
+    "auth": "qBittorrent отклонил логин или пароль.",
+    "address": "По этому адресу отвечает не qBittorrent.",
+    "down": "По этому адресу никто не отвечает.",
+}
+
+
 @router.callback_query(AutofixCb.filter(F.act == "qbit"))
 async def cb_qbit(call: CallbackQuery, apps: Apps, state: FSMContext) -> None:
     if apps.qbit is None:
         await call.answer("qBittorrent не подключён", show_alert=True)
         return
     await call.answer()
-    await state.set_state(AutofixStates.qbit_user)
-    current = f" (сейчас <code>{esc(apps.qbit.username)}</code>)" if apps.qbit.username else ""
+    await state.set_state(AutofixStates.qbit_url)
+    why = _PROBLEM.get(apps.qbit.login_problem, "")
     await edit_or_send(
         call,
-        f"🔑 <b>Вход в qBittorrent</b> · {esc(apps.qbit.base_url)}\nПришлите логин веб-интерфейса{current}. "
-        "Потом спрошу пароль, проверю вход и только тогда сохраню.",
+        f"🔑 <b>qBittorrent: адрес и вход</b>\n{why}\nСейчас адрес <code>{esc(apps.qbit.base_url)}</code>. "
+        "Пришлите адрес веб-интерфейса, например <code>http://192.168.0.165:8080</code>, или «+», чтобы оставить.\n"
+        "Потом спрошу логин и пароль, проверю вход и только тогда сохраню.",
         _cancel_kb(),
     )
+
+
+@router.message(AutofixStates.qbit_url, F.text, ~F.text.startswith("/"))
+async def on_qbit_url(message: Message, state: FSMContext, apps: Apps) -> None:
+    from homebot.services import connect
+
+    text = (message.text or "").strip()
+    if text == "+":
+        url = ""
+    else:
+        url = connect.normalize_url(text) or ""
+        if not url:
+            await message.answer(
+                "Не похоже на адрес. Нужно вида <code>http://192.168.0.165:8080</code> или «+».", reply_markup=_cancel_kb()
+            )
+            return
+    await state.update_data(qbit_url=url)
+    await state.set_state(AutofixStates.qbit_user)
+    current = apps.qbit.username if apps.qbit is not None else ""
+    hint = f" (сейчас <code>{esc(current)}</code>)" if current else ""
+    await message.answer(f"Теперь логин веб-интерфейса{hint}.", reply_markup=_cancel_kb())
 
 
 @router.callback_query(AutofixCb.filter(F.act == "cancel"))
@@ -169,16 +198,17 @@ async def on_qbit_pass(message: Message, state: FSMContext, settings: Settings, 
     password = message.text or ""
     with suppress(TelegramAPIError):
         await message.delete()
-    username = str((await state.get_data()).get("qbit_user", ""))
+    data = await state.get_data()
+    username, url = str(data.get("qbit_user", "")), str(data.get("qbit_url", ""))
     await state.clear()
     wait = await message.answer("🔑 Проверяю вход в qBittorrent…")
     try:
-        saved = await asyncio.wait_for(fixes.qbit_login(settings, apps, username, password), CHECK_TIMEOUT)
+        saved = await asyncio.wait_for(fixes.qbit_login(settings, apps, username, password, url=url), CHECK_TIMEOUT)
     except (AppError, ValueError, TimeoutError) as exc:
         reason = str(exc) or "нет ответа"
         await wait.edit_text(
-            f"❌ Вход не удался: {esc(reason)}.\nНичего не сохранил. qBittorrent после нескольких ошибок подряд "
-            "блокирует вход на время — проверьте данные в его веб-интерфейсе.",
+            f"❌ Вход не удался: {esc(reason)}.\nНичего не сохранил. Проверьте адрес и данные в веб-интерфейсе qBittorrent: "
+            "после нескольких ошибок подряд он блокирует вход на время.",
             reply_markup=kb.autofix_back_kb(extra=[("qbit", "🔑 Ещё раз")]),
         )
         return

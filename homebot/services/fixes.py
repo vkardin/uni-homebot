@@ -56,26 +56,36 @@ class Saved:
     note: str = ""
 
 
-async def qbit_login(settings: Settings, apps: Apps, username: str, password: str, path: Path = ENV_PATH) -> Saved:
-    """Проверяет вход и сохраняет. AppError — вход не удался (ничего не меняется)."""
+async def qbit_login(settings: Settings, apps: Apps, username: str, password: str, path: Path = ENV_PATH, *, url: str = "") -> Saved:
+    """Проверяет вход (по новому адресу, если задан) и сохраняет. AppError — вход не удался (ничего не меняется)."""
     qbit = apps.qbit
     if qbit is None:
         raise ValueError("qBittorrent не подключён")
     username, password = username.strip(), password.strip()
     if not username or not password:
         raise ValueError("нужны и логин, и пароль")
-    await qbit.check_login(username, password)  # AppError → наверх, ничего не сохраняем
-    qbit.set_credentials(username, password)
-    # и в общих настройках: если приложения пересоберут из них (подключение из чата), старый пароль не вернётся
+    new_url = ""
+    if url.strip():
+        normalized = connect.normalize_url(url)
+        if normalized is None:
+            raise ValueError("адрес нужен вида http://192.168.0.10:8080")
+        new_url = normalized if normalized != qbit.base_url else ""
+    await qbit.check_login(username, password, new_url or None)  # AppError → наверх, ничего не сохраняем
+    qbit.set_credentials(username, password, new_url or None)
+    # и в общих настройках: если приложения пересоберут из них (подключение из чата), старое не вернётся
     object.__setattr__(settings, "qbit_username", username)
     object.__setattr__(settings, "qbit_password", SecretStr(password))
-    if not any(name in settings.model_fields_set for name in QBIT_FIELDS):  # подключали из чата — там и храним
+    if new_url:
+        object.__setattr__(settings, "qbit_url", new_url)
+    if not any(name in settings.model_fields_set for name in (*QBIT_FIELDS, "qbit_url")):  # подключали из чата
         stored = connect.load(settings.state_dir)
-        stored["qbit"] = {**stored.get("qbit", {}), "qbit_username": username, "qbit_password": password}
+        values = {"qbit_username": username, "qbit_password": password} | ({"qbit_url": new_url} if new_url else {})
+        stored["qbit"] = {**stored.get("qbit", {}), **values}
         connect.save(settings.state_dir, stored)
         return Saved("chat")
+    env_values = {"QBIT_USERNAME": username, "QBIT_PASSWORD": password} | ({"QBIT_URL": new_url} if new_url else {})
     try:
-        backup = envfile.edit(path, settings.state_dir, values={"QBIT_USERNAME": username, "QBIT_PASSWORD": password})
+        backup = envfile.edit(path, settings.state_dir, values=env_values)
     except OSError:
         return Saved("memory", note=not_writable_text(settings))
     return Saved("env", backup)

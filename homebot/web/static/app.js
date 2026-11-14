@@ -1028,11 +1028,13 @@ async function viewControl(root) {
       }, (r) => r.results.length ? `Готово: ${r.results.filter((x) => x.ok).length} из ${r.results.length}` : "Чинить нечего") }, "🔧 Починить")));
     }
     if (f.qbit) {
+      const url = h("input", { placeholder: "Адрес, например http://192.168.0.165:8080", value: f.qbit_url || "", inputmode: "url" });
       const user = h("input", { placeholder: "Логин", value: f.qbit_user || "", autocomplete: "username" });
       const pass = h("input", { type: "password", placeholder: "Пароль", autocomplete: "current-password" });
-      items.push(row("🔑 qBittorrent: неверный логин или пароль", "Сначала проверю вход, сохраню только если он прошёл"), user, pass,
+      const why = { auth: "неверный логин или пароль", address: "по адресу отвечает не qBittorrent", down: "адрес не отвечает" }[f.qbit_problem] || "нет входа";
+      items.push(row("🔑 qBittorrent: " + why, "Сначала проверю вход, сохраню только если он прошёл"), url, user, pass,
         h("button", { class: "btn primary", onclick: act(async () => {
-          const r = await post("/api/control/fixes", { op: "qbit", username: user.value, password: pass.value });
+          const r = await post("/api/control/fixes", { op: "qbit", url: url.value, username: user.value, password: pass.value });
           pass.value = ""; runDoctor(); return r;
         }, (r) => r.where === "env" ? "Вход работает, записал в .env (копия сохранена)" : r.where === "chat" ? "Вход работает, сохранил" : "Вход работает до перезапуска: " + r.note) }, "Проверить и сохранить"));
     }

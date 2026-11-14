@@ -268,6 +268,8 @@ def test_qbit_login_relogin_and_v5_fallback():
 
 def test_qbit_bad_password():
     def handler(method, url, kwargs):
+        if url == "http://q/":  # страница входа: по адресу действительно qBittorrent (10.3)
+            return FakeResponse(raw=b"<title>qBittorrent WebUI</title>")
         return FakeResponse(raw=b"Fails.")
 
     try:
@@ -288,6 +290,8 @@ def test_qbit_52_login_204_ok_and_401_bad_password():
             response = FakeResponse(status=204, raw=b"")
             response.cookies = {"SID": _cookie("sid-new")}
             return response
+        if url == "http://q/":
+            return FakeResponse(raw=b"<title>qBittorrent WebUI</title>")
         return FakeResponse(body={"dl_info_speed": 5, "up_info_speed": 1, "dl_info_data": 2, "up_info_data": 3})
 
     assert asyncio.run(QbitService(FakeSession(handler), "http://q", "a", "b").transfer()).dl_speed == 5

@@ -303,15 +303,21 @@ class Qbit:
     def __init__(self, good=("admin", "new")):
         self.good = good
         self.username = "admin"
+        self.base_url = "http://127.0.0.1:8080"
+        self.login_problem = "auth"
         self.auth_failed = True
         self.creds = None
+        self.real_url = "http://127.0.0.1:8080"
 
-    async def check_login(self, username, password):
+    async def check_login(self, username, password, base_url=None):
+        if (base_url or self.base_url) != self.real_url:
+            raise AppError("по адресу отвечает не qBittorrent — проверьте QBIT_URL")
         if (username, password) != self.good:
             raise AppError("неверный логин или пароль qBittorrent (QBIT_USERNAME/QBIT_PASSWORD)")
 
-    def set_credentials(self, username, password):
+    def set_credentials(self, username, password, base_url=None):
         self.creds = (username, password)
+        self.base_url = base_url or self.base_url
         self.auth_failed = False
 
 
@@ -405,3 +411,84 @@ def test_panel_fixes_need_confirm_and_never_save_a_bad_qbit_password(tmp_path, m
     assert ok["where"] == "env" and "QBIT_PASSWORD=new" in Path(".env").read_text(encoding="utf-8")
     fixed = asyncio.run(api.control_fixes_post(_Req(ctx, {"op": "docker"})))
     assert {r["name"] for r in fixed["results"]} == {"romm", "romm-db", "flaresolverr", "homarr"}
+
+
+def test_qbit_login_can_move_to_a_new_address():
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / ".env"
+            path.write_text(ENV, encoding="utf-8")
+            settings = _settings(root, qbit_username="admin", qbit_password="old")
+            qbit = Qbit()
+            qbit.real_url = "http://192.168.0.165:8080"
+            apps = SimpleNamespace(qbit=qbit)
+            try:
+                await fixes.qbit_login(settings, apps, "admin", "new", path)  # type: ignore[arg-type]
+            except AppError as exc:
+                assert "не qBittorrent" in str(exc)
+            try:
+                await fixes.qbit_login(settings, apps, "admin", "new", path, url="ftp:/x")  # type: ignore[arg-type]
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("кривой адрес приняли")
+            saved = await fixes.qbit_login(settings, apps, "admin", "new", path, url="http://192.168.0.165:8080/")  # type: ignore[arg-type]
+            text = path.read_text(encoding="utf-8")
+            assert (
+                saved.where == "env"
+                and "QBIT_URL=http://192.168.0.165:8080\n" in text
+                and qbit.base_url == "http://192.168.0.165:8080"
+            )
+            assert settings.qbit_url == "http://192.168.0.165:8080"
+
+    asyncio.run(scenario())
+
+
+class _Resp:
+    def __init__(self, status, body):
+        self.status, self._body, self.cookies = status, body, {}
+
+    async def text(self):
+        return self._body
+
+    async def read(self):
+        return self._body.encode()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class _Session:
+    def __init__(self, login, page):
+        self.login, self.page = login, page
+
+    def post(self, url, **kw):
+        return _Resp(*self.login)
+
+    def get(self, url, **kw):
+        return _Resp(*self.page)
+
+
+def test_qbit_tells_wrong_address_from_wrong_password():
+    from homebot.services.qbittorrent import QbitService
+
+    async def problem(login, page):
+        q = QbitService(_Session(login, page), "http://127.0.0.1:8080", "admin", "x")  # type: ignore[arg-type]
+        try:
+            await q.transfer()
+        except AppError as exc:
+            return q.login_problem, str(exc)
+        raise AssertionError("вход прошёл")
+
+    kind, text = asyncio.run(problem((401, "Unauthorized"), (200, "<title>Homarr</title>")))
+    assert kind == "address" and "QBIT_URL" in text
+    kind, _ = asyncio.run(problem((401, ""), (200, "<title>qBittorrent WebUI</title>")))
+    assert kind == "auth"
+    kind, _ = asyncio.run(problem((200, "Fails."), (200, "<html>qBittorrent</html>")))
+    assert kind == "auth"
+    kind, _ = asyncio.run(problem((404, "Not found"), (200, "")))
+    assert kind == "address"
