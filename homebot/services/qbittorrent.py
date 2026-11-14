@@ -86,6 +86,7 @@ class QbitService:
         self._username = username
         self._password = password
         self._sid: str | None = None
+        self._cookie_name = "SID"
         self._login_lock = asyncio.Lock()
         self._blocked_until = 0.0
         self._blocked_reason = ""
@@ -171,10 +172,12 @@ class QbitService:
                         if resp.status == 403
                         else describe_status(resp.status)
                     )
-                cookie = resp.cookies.get("SID")
-                if body not in ("Ok.", "") or cookie is None:  # старые версии: «Ok.» / «Fails.», новые: 204 и пустое тело
-                    raise AppError(bad_login)
-                self._sid = cookie.value
+                # Сессия: «SID» до 5.0, с 5.1 — «QBT_SID_<порт>» (своё имя у каждого экземпляра)
+                name = next((n for n in resp.cookies if n == "SID" or n.startswith("QBT_SID")), None)
+                if name is None:
+                    raise AppError("qBittorrent принял вход, но не выдал сессию — сообщите версию qBittorrent")
+                self._cookie_name = name
+                self._sid = resp.cookies[name].value
         except AppError:
             raise
         except (aiohttp.ClientError, TimeoutError) as exc:
@@ -190,7 +193,7 @@ class QbitService:
                     f"{self._base}{path}",
                     params=params or {},
                     data=data,
-                    headers={"Cookie": f"SID={self._sid}", "Referer": self._base},
+                    headers={"Cookie": f"{self._cookie_name}={self._sid}", "Referer": self._base},
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     if resp.status == 403 and attempt == 0:

@@ -492,3 +492,38 @@ def test_qbit_tells_wrong_address_from_wrong_password():
     assert kind == "auth"
     kind, _ = asyncio.run(problem((404, "Not found"), (200, "")))
     assert kind == "address"
+
+
+def test_qbit_51_session_cookie_has_port_in_its_name():
+    from homebot.services.qbittorrent import QbitService
+
+    class Cookie:
+        value = "sid-51"
+
+    calls: list[dict] = []
+
+    class Resp(_Resp):
+        pass
+
+    class Session:
+        def post(self, url, **kw):
+            r = _Resp(204, "")
+            r.cookies = {"QBT_SID_8080": Cookie()}
+            return r
+
+        def request(self, method, url, **kw):
+            calls.append(kw["headers"])
+            return _Json()
+
+    class _Json(_Resp):
+        def __init__(self):
+            super().__init__(200, '{"dl_info_speed": 1, "up_info_speed": 2, "dl_info_data": 3, "up_info_data": 4}')
+
+        async def json(self, content_type=None):
+            import json
+
+            return json.loads(self._body)
+
+    q = QbitService(Session(), "http://192.168.0.165:8080", "admin", "x")  # type: ignore[arg-type]
+    assert asyncio.run(q.transfer()).dl_speed == 1
+    assert q.login_problem == "" and calls[0]["Cookie"] == "QBT_SID_8080=sid-51"
